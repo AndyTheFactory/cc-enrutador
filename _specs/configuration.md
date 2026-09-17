@@ -126,6 +126,13 @@ timeouts:
 telemetry:
   enabled: true
   persist_prompts: false
+  preserve_claude_default: true
+
+doctor:
+  live_probes: false
+  probe_timeout_ms: 10000
+  check_streaming: true
+  check_tool_calls: true
 
 debug:
   classification_endpoint: true
@@ -365,7 +372,29 @@ V1 may require a process restart after configuration changes.
 
 Hot reload of routing/model configuration is not required.
 
-## 13. Acceptance criteria
+## 13. Doctor configuration
+
+The diagnostic CLI reads the same configuration as the server. Optional doctor settings:
+
+```yaml
+doctor:
+  live_probes: false
+  probe_timeout_ms: 10000
+  check_streaming: true
+  check_tool_calls: true
+```
+
+CLI flags override these diagnostic defaults for the current invocation, for example `cc-enrutador doctor --live`.
+
+Doctor diagnostics must validate secrets only by presence/readability and must never print resolved values.
+
+## 14. Telemetry compatibility
+
+`telemetry.enabled` controls only router-owned telemetry.
+
+`telemetry.preserve_claude_default` defaults to `true` and documents the invariant that Claude Code's own default telemetry/observability remains unaffected or transparently forwarded when it traverses the proxy. V1 should not expose a supported configuration that intentionally disables Claude Code telemetry.
+
+## 15. Acceptance criteria
 
 Configuration support is complete when:
 
@@ -378,4 +407,6 @@ Configuration support is complete when:
 7. classifier/connect/request/stream-idle timeouts are independently configurable;
 8. invalid configurations fail at startup with actionable errors;
 9. secrets are sourced from environment variables and never printed;
-10. no classifier code contains provider/model names.
+10. no classifier code contains provider/model names;
+11. doctor settings are configurable and `--live` can override the live-probe default;
+12. disabling router telemetry does not disable Claude Code's default telemetry.
