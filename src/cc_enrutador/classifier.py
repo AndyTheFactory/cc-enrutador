@@ -282,8 +282,8 @@ class ClassifierService:
                 timeout=self.config.timeout_ms / 1000,
             )
             tier = parse_classifier_output(raw, self.config)
-        except (TimeoutError, asyncio.TimeoutError, ValueError, RuntimeError, OSError):
-            return self._heuristic_result(heuristic, started, reason_prefix="ai-fallback:")
+        except Exception:
+            # Classifier/provider failures must never block the routed user request.\n            # asyncio.CancelledError is a BaseException and still propagates correctly.\n            return self._heuristic_result(heuristic, started, reason_prefix="ai-fallback:")
 
         self.cache.put(cache_key, tier)
         return ClassificationResult(
