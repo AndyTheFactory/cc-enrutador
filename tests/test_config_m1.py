@@ -52,9 +52,7 @@ def test_duplicate_classifier_labels_are_rejected() -> None:
 
 def test_escalation_cycle_is_rejected() -> None:
     data = base()
-    data["escalation"] = {
-        "chain": {"simple": ["medium"], "medium": ["simple"], "complex": []}
-    }
+    data["escalation"] = {"chain": {"simple": ["medium"], "medium": ["simple"], "complex": []}}
 
     with pytest.raises(ValidationError, match="cycle"):
         AppConfig.model_validate(data)
@@ -62,9 +60,7 @@ def test_escalation_cycle_is_rejected() -> None:
 
 def test_non_positive_tier_timeout_is_rejected() -> None:
     data = base()
-    data["timeouts"] = {
-        "request_ms": {"simple": 0, "medium": 1, "complex": 1}
-    }
+    data["timeouts"] = {"request_ms": {"simple": 0, "medium": 1, "complex": 1}}
 
     with pytest.raises(ValidationError, match="must be positive"):
         AppConfig.model_validate(data)
