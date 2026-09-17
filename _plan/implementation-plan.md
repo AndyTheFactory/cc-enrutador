@@ -13,16 +13,16 @@ Implementation should optimize for simplicity and observability rather than fram
 - classification and provider routing remain separate
 - no model names hard-coded into classifier logic
 - Claude OAuth must never reach non-Anthropic providers
-- real Claude Code traffic is the source of truth for compatibility
+- Anthropic/Claude Code documented API behavior and our specs are the implementation contract; real traffic is used for end-to-end validation
 - LiteLLM is used for provider normalization, not for task classification policy
 - direct Anthropic passthrough remains the V1 subscription path
 - router telemetry is additive to Claude Code telemetry
 
 ## Milestones
 
-### M0 — Project foundation and compatibility capture
+### M0 — Project foundation
 
-Establish the Python project and capture enough real Claude Code traffic to validate the protocol assumptions before building the proxy deeply.
+Establish the executable Python project, configuration skeleton, test infrastructure, CLI entry points, and licensing/provenance needed for implementation.
 
 Deliverables:
 
@@ -31,16 +31,14 @@ Deliverables:
 - lint/type/test tooling
 - configuration loader skeleton
 - third-party MIT attribution for `serhiileniv/claude-router`
-- minimal recording/echo proxy for controlled Claude Code traffic capture
-- documented observed headers, request shapes, streaming events, tool events, meta-calls, telemetry/auxiliary traffic
-- sanitized fixtures derived from captured traffic
+- baseline project documentation and example configuration skeleton
 
 Exit criteria:
 
 - `uv run pytest` works
 - `uv run cc-enrutador --help` works
-- at least one authenticated Claude Code session has been observed through the recorder
-- captured observations are reflected back into specs where needed
+- configuration can be loaded and validated from a minimal example
+- project is ready for classifier implementation without unresolved foundation work
 
 ### M1 — Configuration, task extraction, and classification
 
@@ -151,14 +149,10 @@ Exit criteria:
 ## Dependency graph
 
 ```text
-M0 ───────────────┐
- │                │
- ├──► M1 ───────► M2 ───────► M3 ───────► M4
- │                ▲
- └─ wire fixtures ┘
+M0 ───► M1 ───► M2 ───► M3 ───► M4
 ```
 
-M1 classification work can begin once the project skeleton exists, while the M0 traffic-capture work proceeds. M2 must consume the validated M0 fixtures rather than relying only on assumptions from the initial spec.
+M1 begins after the project skeleton and configuration foundation in M0. Real Claude Code traffic validation is deferred to M4 end-to-end hardening; it may reveal compatibility fixes, but it is not a prerequisite for M1 or M2.
 
 ## PR/task sizing
 
