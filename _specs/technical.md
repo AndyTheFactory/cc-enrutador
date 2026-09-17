@@ -62,6 +62,8 @@ Suggested package structure:
 ```text
 src/cc_enrutador/
 ├── app.py
+├── cli.py
+├── doctor.py
 ├── config.py
 ├── models.py
 ├── task_extraction.py
@@ -85,6 +87,7 @@ tests/
 ├── test_routing.py
 ├── test_auth_isolation.py
 ├── test_streaming.py
+├── test_doctor.py
 └── fixtures/
 ```
 
@@ -389,7 +392,9 @@ Exact LiteLLM model identifiers are deployment-specific and should not be hard-c
 
 ## 14. Telemetry
 
-V1 local telemetry can be structured JSONL or Python logging output.
+### 14.1 Router telemetry
+
+V1 local router telemetry can be structured JSONL or Python logging output.
 
 Minimum event fields:
 
@@ -412,7 +417,31 @@ Never log authorization headers.
 
 Never persist prompt/response bodies unless explicit debug capture is enabled.
 
-## 15. Testing strategy
+### 14.2 Preserve Claude Code default telemetry
+
+`cc-enrutador` routing telemetry is additive. The proxy must not intentionally disable, intercept, rewrite, or replace Claude Code's own default telemetry/observability traffic.
+
+Where Claude Code telemetry or auxiliary observability calls are sent through `ANTHROPIC_BASE_URL`, the proxy must preserve compatibility and forward them appropriately rather than treating them as normal model-routing requests. Where telemetry uses endpoints outside the router, it should remain unaffected.
+
+Setting `telemetry.enabled: false` disables only `cc-enrutador` telemetry.
+
+## 15. Doctor diagnostic CLI
+
+V1 must provide `cc-enrutador doctor`.
+
+The command validates the installation and configured routing stack without requiring the HTTP server to already be running.
+
+Default mode must be non-destructive and avoid billable/model-generating requests where possible. It reports PASS/WARN/FAIL for configuration validation, secret references by presence only, classifier configuration, all three model routes, escalation-chain validity, endpoint syntax/reachability, LiteLLM/provider availability, Anthropic-subscription configuration, bind-port availability, telemetry destination writability, and effective timeouts.
+
+`cc-enrutador doctor --live` may perform minimal real requests to verify the classifier, model completion, streaming, tool/function calling, and Anthropic subscription connectivity. Live probes must use tiny prompts/token budgets and identify checks that may incur provider usage.
+
+`cc-enrutador doctor --json` provides machine-readable output.
+
+Exit codes: `0` = required checks pass (warnings allowed); `1` = one or more required checks fail; `2` = configuration cannot be loaded or parsed.
+
+The doctor command must never print API keys, OAuth tokens, authorization headers, or resolved secret values.
+
+## 16. Testing strategy
 
 Classifier behavior must be fixture-driven.
 
@@ -436,7 +465,7 @@ Include at least:
 
 The translated classifier should preserve the intent of the source project's behavior, but Python tests become the authoritative behavior for this repository.
 
-## 16. Licensing / provenance
+## 17. Licensing / provenance
 
 The classifier/routing design is adapted from:
 
@@ -446,7 +475,7 @@ License: MIT.
 
 Before substantial code is translated, include the upstream MIT notice in the repository (for example under `THIRD_PARTY_NOTICES.md` or `licenses/claude-router-MIT.txt`) and note adapted source files where appropriate.
 
-## 17. V1 acceptance criteria
+## 18. V1 acceptance criteria
 
 V1 is complete when all of the following work locally:
 
@@ -460,3 +489,5 @@ V1 is complete when all of the following work locally:
 8. Hybrid classification falls back safely on classifier timeout/failure.
 9. Every route decision is locally auditable by tier/reason/confidence.
 10. Unit/integration tests cover classifier gates, task extraction, auth isolation, and routing.
+11. `cc-enrutador doctor` validates configuration and backend setup, and `--live` can perform minimal capability probes.
+12. Disabling router telemetry does not disable or replace Claude Code's own default telemetry behavior.
