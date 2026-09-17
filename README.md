@@ -24,7 +24,7 @@ M0 provides the project foundation:
 - synthetic Anthropic request fixtures
 - third-party attribution
 
-The routing proxy, classifier, and live doctor probes are implemented in later milestones.
+M1 adds task extraction, heuristic/AI/hybrid classification, classifier caching, and the `/debug/classify` development endpoint. Provider execution and the live routing proxy remain M2 work; live doctor probes remain M3.
 
 ## Development setup
 
