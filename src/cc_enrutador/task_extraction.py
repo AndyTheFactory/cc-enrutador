@@ -88,9 +88,7 @@ def user_message_count(request: Mapping[str, Any]) -> int:
     if not isinstance(messages, list):
         return 0
     return sum(
-        1
-        for message in messages
-        if isinstance(message, Mapping) and message.get("role") == "user"
+        1 for message in messages if isinstance(message, Mapping) and message.get("role") == "user"
     )
 
 
@@ -125,17 +123,16 @@ def _has_tool_block(request: Mapping[str, Any], block_type: str) -> bool:
         content = message.get("content")
         if not isinstance(content, list):
             continue
-        if any(
-            isinstance(block, Mapping) and block.get("type") == block_type
-            for block in content
-        ):
+        if any(isinstance(block, Mapping) and block.get("type") == block_type for block in content):
             return True
     return False
 
 
 def is_agentic(request: Mapping[str, Any]) -> bool:
-    return tool_count(request) > 0 or _has_tool_block(request, "tool_use") or _has_tool_block(
-        request, "tool_result"
+    return (
+        tool_count(request) > 0
+        or _has_tool_block(request, "tool_use")
+        or _has_tool_block(request, "tool_result")
     )
 
 
@@ -151,7 +148,6 @@ def is_mid_loop(request: Mapping[str, Any]) -> bool:
         if not isinstance(content, list):
             return False
         return any(
-            isinstance(block, Mapping) and block.get("type") == "tool_result"
-            for block in content
+            isinstance(block, Mapping) and block.get("type") == "tool_result" for block in content
         )
     return False
