@@ -1,0 +1,6 @@
+{
+  "model": "claude-sonnet-example",
+  "max_tokens": 512,
+  "stream": false,
+  "messages": [{"role": "user", "content": "Rename the parse_item function to parse_record."}]
+}

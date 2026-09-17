@@ -1,0 +1,88 @@
+server:
+  host: 127.0.0.1
+  port: 8787
+
+classifier:
+  mode: hybrid
+  model:
+    provider: litellm
+    model: ollama/qwen3:4b
+    api_base: http://127.0.0.1:11434
+    api_key_env: null
+  prompt: |
+    Classify the task complexity.
+
+    Return ONLY one digit:
+    1 = simple, short, mechanical, self-contained
+    2 = normal coding/reasoning task
+    3 = architecture, broad, ambiguous, or long-horizon task
+
+    Task:
+    {task}
+  output:
+    simple: "1"
+    medium: "2"
+    complex: "3"
+  timeout_ms: 1500
+  max_output_tokens: 4
+  temperature: 0
+  cache_size: 500
+
+models:
+  simple:
+    provider: litellm
+    model: ollama/qwen3-coder
+    api_base: http://127.0.0.1:11434
+    api_key_env: null
+
+  medium:
+    provider: litellm
+    model: openai/gpt-oss-120b
+    api_base: ${GPT_OSS_BASE_URL}
+    api_key_env: GPT_OSS_API_KEY
+
+  complex:
+    provider: anthropic_subscription
+    model: passthrough
+    api_base: https://api.anthropic.com
+    api_key_env: null
+
+escalation:
+  enabled: true
+  provider_failure:
+    simple_to_medium: true
+    medium_to_complex: true
+  semantic:
+    enabled: false
+    max_attempts_per_level: 1
+  never_demote_within_task: true
+  chain:
+    simple: [medium, complex]
+    medium: [complex]
+    complex: []
+
+timeouts:
+  classifier_ms: 1500
+  connect_ms: 5000
+  request_ms:
+    simple: 120000
+    medium: 300000
+    complex: 600000
+  stream_idle_ms:
+    simple: 60000
+    medium: 120000
+    complex: 120000
+
+telemetry:
+  enabled: true
+  persist_prompts: false
+  preserve_claude_default: true
+
+doctor:
+  live_probes: false
+  probe_timeout_ms: 10000
+  check_streaming: true
+  check_tool_calls: true
+
+logging:
+  level: INFO

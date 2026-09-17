@@ -1,0 +1,6 @@
+{
+  "model": "claude-sonnet-example",
+  "max_tokens": 512,
+  "system": "You are working in a Python repository.",
+  "messages": [{"role": "user", "content": "Explain this module."}]
+}
