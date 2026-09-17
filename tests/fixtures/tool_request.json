@@ -1,0 +1,14 @@
+{
+  "model": "claude-sonnet-example",
+  "max_tokens": 512,
+  "tools": [{
+    "name": "read_file",
+    "description": "Read a repository file.",
+    "input_schema": {
+      "type": "object",
+      "properties": {"path": {"type": "string"}},
+      "required": ["path"]
+    }
+  }],
+  "messages": [{"role": "user", "content": "Read pyproject.toml and summarize the dependencies."}]
+}
