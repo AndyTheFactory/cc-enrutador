@@ -1,33 +1,40 @@
-# M0 — Project Foundation and Compatibility Capture
+# M0 — Project Foundation
 
 ## Objective
 
-Create the executable project skeleton and replace protocol assumptions with captured Claude Code behavior.
+Create the executable project skeleton and the minimum shared infrastructure required by all later milestones.
 
 ## Tasks
 
-1. Initialize Python 3.12 project with `uv`, src layout, pytest, linting and typing.
-2. Add CLI entry point with `--help`, config-path option, and placeholder serve/doctor commands.
-3. Implement initial Pydantic configuration skeleton sufficient to start tools.
-4. Add MIT attribution / third-party notice for the classifier source project.
-5. Build a minimal recording/echo proxy for controlled inspection of Claude Code requests and streams.
-6. Capture a real logged-in Claude Code session through `ANTHROPIC_BASE_URL`.
-7. Sanitize captures into reusable test fixtures.
-8. Document observed:
-   - request headers
-   - OAuth behavior
-   - `anthropic-beta` headers
-   - model identifiers
-   - streaming events
-   - tool-use/tool-result shapes
-   - meta/internal calls
-   - auxiliary endpoints
-   - telemetry/observability calls
-9. Update specs if observations contradict assumptions.
+1. Initialize Python 3.12 project with `uv` and src layout.
+2. Add pytest, linting, formatting, and typing configuration.
+3. Add the `cc-enrutador` CLI entry point.
+4. Add CLI surface for:
+   - `cc-enrutador serve`
+   - `cc-enrutador doctor`
+   - `cc-enrutador --help`
+5. Implement the initial Pydantic configuration models and YAML loading path.
+6. Add environment-variable interpolation/secrets-by-reference foundation.
+7. Add a minimal example configuration matching the three configured levels and classifier.
+8. Add package logging setup without prompt/body persistence.
+9. Add MIT attribution / third-party notice for the classifier source project.
+10. Establish test directory/fixtures structure for later Anthropic request fixtures.
+11. Add basic README development instructions.
 
 ## Acceptance
 
-- CLI and test skeleton run on Windows and Linux-compatible environments.
-- No secrets exist in fixtures.
-- At least one streaming and one tool-using session are represented in fixtures.
-- Compatibility findings are written down before M2 provider implementation is finalized.
+- `uv sync` succeeds from a clean checkout.
+- `uv run pytest` succeeds.
+- lint/type checks can be run locally.
+- `uv run cc-enrutador --help` succeeds.
+- `uv run cc-enrutador doctor --help` succeeds.
+- a minimal YAML configuration loads through Pydantic.
+- invalid configuration produces an actionable error.
+- no secrets are committed.
+- classifier/proxy implementation can begin without additional project-bootstrap work.
+
+## Not part of M0
+
+Real Claude Code traffic capture is not required to start implementation. The documented Anthropic Messages API behavior and the project specifications are the contract.
+
+Real-session compatibility validation belongs to M4 end-to-end hardening. If undocumented Claude Code behavior is discovered there, it should result in focused compatibility fixes and regression fixtures.
