@@ -1,135 +1,68 @@
 # cc-enrutador — Open Questions
 
-These questions are intentionally not locked into the V1 functional/technical requirements yet.
+Only genuinely unresolved decisions remain here. Resolved architecture and V1 behavior belong in the functional, technical, and configuration specifications.
 
-## 1. Simple-tier model
+## 1. Default simple-tier model
 
-Which model should be the default local `simple` backend?
+Which concrete model should be used in the reference configuration for the `simple` tier?
 
-Candidates may include a small coder/instruct model via Ollama or another local OpenAI-compatible server.
+Requirements:
 
-Selection criteria:
+- fast local inference
+- reliable tool/function calling through LiteLLM
+- sufficient quality for short mechanical coding tasks
+- modest memory footprint
 
-- reliable Anthropic-style tool calling after LiteLLM translation
-- low latency
-- small memory footprint
-- adequate quality for mechanical coding tasks
+The router itself must remain model-agnostic.
 
-## 2. Medium-tier GPT-OSS-120B deployment
+## 2. Default classifier model
 
-Where will GPT-OSS-120B run?
+Which concrete small model should be used in the reference configuration for hybrid classification?
 
-Options:
+Requirements:
+
+- very low latency
+- reliable `simple / medium / complex` classification
+- deterministic short output
+- preferably runnable on the same local inference stack as the simple-tier model
+
+The classifier model remains independently configurable from the simple-tier execution model.
+
+## 3. Medium-tier GPT-OSS-120B deployment
+
+Where will the initial GPT-OSS-120B backend run?
+
+Possible deployments:
 
 - local/self-hosted vLLM
 - remote OpenAI-compatible endpoint
 - third-party inference provider
 
-This affects authentication, expected latency, retry policy, and whether `medium` is always available.
+This only affects the reference/development configuration. The router treats the medium tier as a generic LiteLLM target.
 
-## 3. AI classifier model
+## 4. Claude Code compatibility observations
 
-Which small model should be used for ambiguous hybrid-classification cases?
+Before V1 is considered complete, record a real Claude Code session through a debug/echo proxy and verify the actual compatibility surface.
 
-Goal: very low latency and cost. It does not need to solve the coding task, only classify `simple / medium / complex`.
+Confirm:
 
-Potentially use the same local server as the simple-tier model but a smaller/faster model.
-
-## 4. Escalation in V1 vs V2
-
-Should V1 only perform initial task routing, or also dynamically escalate an ongoing task?
-
-Possible later signals:
-
-- provider failure
-- repeated model/tool loop
-- failed tests after an attempted edit
-- repeated modification of the same files
-- explicit model uncertainty
-- user correction after a failed attempt
-
-The current spec only requires provider-availability fallback, not semantic task escalation.
-
-## 5. Session stickiness
-
-Should the selected tier be evaluated independently on every Claude Code request, or should a task/session establish a minimum tier for subsequent requests?
-
-The source classifier deliberately handles mid-loop traffic differently, but full session stickiness could prevent route oscillation.
-
-Possible policy:
-
-- classify fresh user instructions
-- route tool-result mid-loop requests to the current task tier or at least `medium`
-- allow explicit escalation but not automatic demotion until a fresh task begins
-
-Needs real Claude Code traffic testing before locking in.
-
-## 6. Incoming model field
-
-How should explicit Claude Code model selection interact with automatic routing?
-
-Possible policies:
-
-- `auto` mode: ignore requested model for backend selection
-- `respect` mode: direct user-selected Opus/Sonnet/etc. to configured matching route
-- explicit override header/env/config option for debugging
-
-V1 should likely default to automatic task-aware routing while retaining an escape hatch.
-
-## 7. Claude Code compatibility surface
-
-Start with `POST /v1/messages` and add other endpoints only when actual Claude Code traffic requires them.
-
-We should record a real session through a debug/echo proxy before implementation is considered complete, to identify:
-
-- exact headers Claude Code sends with subscription OAuth
-- current `anthropic-beta` capability headers
-- meta/classifier requests
-- any auxiliary API endpoints that hit `ANTHROPIC_BASE_URL`
+- exact subscription OAuth/header behavior
+- required `anthropic-beta` capability headers
 - streaming event shapes
-- model identifiers used by Claude Code
+- tool-use event shapes
+- Claude Code meta/internal requests
+- auxiliary endpoints, if any, that use `ANTHROPIC_BASE_URL`
+- default telemetry/observability traffic that may traverse the proxy
+- how fresh user instructions can be reliably distinguished from internal/meta turns
 
-## 8. LiteLLM boundary
+Any behavior discovered here that changes routing or passthrough requirements must be folded back into the main specifications.
 
-Current preferred design:
+## Deferred, not open
 
-- `simple` / `medium` → LiteLLM
-- `complex` subscription → direct Anthropic passthrough
+The following are intentionally deferred rather than unresolved:
 
-Question: can we simplify further by using LiteLLM for the Anthropic subscription leg without altering OAuth/beta headers?
-
-This should only be adopted after an integration test proves credential and header preservation. Simplicity must not come at the expense of leaking the subscription OAuth token or breaking subscription billing.
-
-## 9. Provider capability checks
-
-Should startup validate that configured simple/medium models support the features Claude Code requires?
-
-Potential checks:
-
-- streaming
-- tool/function calling
-- system messages
-- sufficiently large context
-
-This could prevent hard-to-debug failures later but adds startup complexity.
-
-## 10. Telemetry persistence
-
-For V1, is structured console/JSONL logging sufficient, or should routing events be stored in SQLite from the start?
-
-JSONL is simpler; SQLite makes later evaluation of classifier accuracy and escalation patterns easier.
-
-## 11. Windows-first ergonomics
-
-The initial user environment includes Windows development workflows. Decide whether V1 installation should explicitly optimize for:
-
-- `uv run cc-enrutador`
-- a PowerShell setup helper
-- `.env` support
-- optional Docker Compose for LiteLLM/local model components
-
-## 12. Name / package identity
-
-Repository: `cc-enrutador`.
-
-Decide whether the published Python package/CLI should also be `cc-enrutador`, `cc_enrutador`, or use a more descriptive public name later.
+- semantic escalation based on model quality, failed tests, repeated edits, or uncertainty
+- SQLite/dashboard telemetry
+- hot configuration reload
+- learned/adaptive routing
+- broader provider capability benchmarking
