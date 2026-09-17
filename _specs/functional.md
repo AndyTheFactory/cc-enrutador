@@ -229,6 +229,8 @@ Classifier failure never triggers execution escalation; it falls back to heurist
 
 ## 9. Auditability and telemetry
 
+Router telemetry is additive to Claude Code's own default telemetry. `cc-enrutador` must not intentionally disable or replace Claude Code's built-in telemetry/observability behavior. Disabling router telemetry affects only `cc-enrutador`'s local routing records.
+
 Every inference request should produce a local routing record containing at least:
 
 - timestamp
@@ -282,7 +284,10 @@ At minimum provide:
 - concise structured application logs
 - selected tier/model/reason per request
 - health endpoint
-- optional debug endpoint or CLI command that classifies a supplied sample request without invoking the target model
+- optional debug endpoint that classifies a supplied sample request without invoking the target model
+- required `cc-enrutador doctor` CLI command for configuration/backend diagnostics
+
+The doctor command must support a safe default mode that does not intentionally spend model tokens, plus an optional `--live` mode for minimal provider/capability probes. It must validate configuration, model endpoints, escalation policy, timeouts, credentials by presence only (never value), and relevant streaming/tool-call capabilities.
 
 A dashboard is out of scope for V1.
 
