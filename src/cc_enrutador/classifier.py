@@ -283,7 +283,9 @@ class ClassifierService:
             )
             tier = parse_classifier_output(raw, self.config)
         except Exception:
-            # Classifier/provider failures must never block the routed user request.\n            # asyncio.CancelledError is a BaseException and still propagates correctly.\n            return self._heuristic_result(heuristic, started, reason_prefix="ai-fallback:")
+            # Classifier/provider failures must never block the routed user request.
+            # asyncio.CancelledError is a BaseException and still propagates correctly.
+            return self._heuristic_result(heuristic, started, reason_prefix="ai-fallback:")
 
         self.cache.put(cache_key, tier)
         return ClassificationResult(
