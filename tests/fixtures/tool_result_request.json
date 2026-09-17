@@ -1,0 +1,29 @@
+{
+  "model": "claude-sonnet-example",
+  "max_tokens": 512,
+  "stream": true,
+  "tools": [{
+    "name": "read_file",
+    "description": "Read a repository file.",
+    "input_schema": {"type": "object", "properties": {}}
+  }],
+  "messages": [
+    {
+      "role": "assistant",
+      "content": [{
+        "type": "tool_use",
+        "id": "toolu_example",
+        "name": "read_file",
+        "input": {"path": "pyproject.toml"}
+      }]
+    },
+    {
+      "role": "user",
+      "content": [{
+        "type": "tool_result",
+        "tool_use_id": "toolu_example",
+        "content": "[project]\nname = \"example\""
+      }]
+    }
+  ]
+}
