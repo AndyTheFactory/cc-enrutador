@@ -56,13 +56,15 @@ def test_code_fence_blocks_simple_gate() -> None:
 
 def test_image_blocks_simple_gate() -> None:
     payload = {
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "List the visible labels."},
-                {"type": "image", "source": {"type": "base64", "data": "abc"}},
-            ],
-        }]
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "List the visible labels."},
+                    {"type": "image", "source": {"type": "base64", "data": "abc"}},
+                ],
+            }
+        ]
     }
     result = heuristic_classify(payload, config())
     assert result.tier == ComplexityTier.MEDIUM
@@ -101,11 +103,13 @@ def test_mid_loop_is_medium_even_if_tool_result_contains_depth_words() -> None:
             },
             {
                 "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": "x",
-                    "content": "architect end-to-end from scratch",
-                }],
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "x",
+                        "content": "architect end-to-end from scratch",
+                    }
+                ],
             },
         ],
     }
