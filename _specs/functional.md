@@ -8,9 +8,11 @@ Its purpose is to reduce use of expensive remote models while preserving Claude 
 
 For each Claude Code inference request, the router classifies the current task into one of three generic complexity tiers and sends the request to the configured backend for that tier:
 
-- `simple` → inexpensive local model
-- `medium` → stronger non-Claude model, initially GPT-OSS-120B
-- `complex` → Anthropic Claude using the user's existing Claude Code subscription
+- `simple` → configurable level 1 model
+- `medium` → configurable level 2 model
+- `complex` → configurable level 3 model
+
+The initial intended mapping is local model / GPT-OSS-120B / Claude subscription, but none of these model names are hard-coded into classifier logic.
 
 The classifier must remain independent of model names. Model/provider selection belongs in configuration.
 
@@ -128,7 +130,10 @@ V1 should support three classifier modes:
 
 The AI classifier should return only a three-level complexity verdict. It must have:
 
-- short timeout
+- configurable classifier model
+- configurable classification prompt
+- configurable output-label mapping
+- short configurable timeout
 - small output budget
 - deterministic/low-temperature behavior where supported
 - local cache
@@ -140,23 +145,30 @@ The classifier backend itself must be configurable and may be a small local mode
 
 Classification and provider selection are separate concerns.
 
-Example configuration:
+The router must independently configure:
+
+- level 1 / `simple` model
+- level 2 / `medium` model
+- level 3 / `complex` model
+
+Example:
 
 ```yaml
-routes:
+models:
   simple:
     model: ollama/qwen3-coder
   medium:
     model: openai/gpt-oss-120b
   complex:
-    model: anthropic-subscription
+    provider: anthropic_subscription
+    model: passthrough
 ```
 
 Changing providers/models must not require changing classifier code.
 
 ## 6. Claude subscription behavior
 
-The `complex` route must support the user's existing Claude Code subscription rather than requiring a separate Anthropic API key.
+The `complex` route must support the user's existing Claude Code subscription rather than requiring a separate Anthropic API key when that route is configured as `anthropic_subscription`.
 
 Requirements:
 
@@ -186,31 +198,34 @@ The router itself owns:
 - classification
 - route selection
 - credential isolation
-- direct Anthropic subscription passthrough
+- direct Anthropic subscription passthrough where configured
 - routing telemetry
 
 The direct Anthropic subscription route may bypass LiteLLM if that is safer or simpler for OAuth passthrough.
 
 ## 8. Failure behavior and escalation
 
-V1 routing must fail safely.
+Escalation policy must be configurable independently from classification.
 
-At minimum:
-
-- classifier failure → use heuristic result
-- unavailable `simple` backend → configurable fallback to `medium`
-- unavailable `medium` backend → configurable fallback to `complex`
-- Anthropic subscription route failure → return the upstream error; do not silently replace subscription traffic with paid API credentials
-
-Runtime task escalation based on semantic failure, repeated edits, failed tests, or tool-loop behavior is desirable but not required for the first functional milestone.
-
-A later version may support:
+V1 must support provider/transport failure escalation using a configurable chain. Default intent:
 
 ```text
 simple → medium → complex
+medium → complex
+complex → stop
 ```
 
-based on observable failure signals.
+Examples of provider failure include connection failures, request timeouts, retryable provider errors, and upstream unavailability.
+
+Semantic escalation is a separate policy. It may be disabled in the first implementation but its configuration shape must be reserved. Potential future signals include:
+
+- repeated model/tool loop
+- failed tests after an attempted edit
+- repeated modification of the same files
+- explicit model uncertainty
+- retry after an unsuccessful result
+
+Classifier failure never triggers execution escalation; it falls back to heuristic classification.
 
 ## 9. Auditability and telemetry
 
@@ -234,22 +249,29 @@ Debug capture of request/response bodies must be an explicit opt-in development 
 
 ## 10. Configuration
 
+Configuration is a first-class requirement and is specified in `_specs/configuration.md`.
+
+V1 must allow configuration without Python code changes of:
+
+- classifier model/provider
+- level 1 / `simple` model/provider
+- level 2 / `medium` model/provider
+- level 3 / `complex` model/provider
+- escalation policy and escalation chain
+- classification prompt and classifier output labels
+- classifier timeout
+- upstream connection timeout
+- per-level request timeouts
+- per-level stream idle timeouts
+- classifier cache/output settings
+- listen host/port
+- logging/telemetry/debug behavior
+
 Configuration should be YAML plus environment variables for secrets.
 
-Configuration should include:
-
-- listen host/port
-- classifier mode
-- classifier backend/model
-- AI classifier timeout
-- tier → model mapping
-- provider endpoints
-- fallback behavior
-- logging level
-- telemetry enable/disable
-- debug request capture enable/disable
-
 Secrets must never be committed to configuration files.
+
+Invalid configuration must fail clearly at startup.
 
 ## 11. User-visible diagnostics
 
