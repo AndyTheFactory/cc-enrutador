@@ -40,23 +40,6 @@ Possible deployments:
 
 This only affects the reference/development configuration. The router treats the medium tier as a generic LiteLLM target.
 
-## 4. Claude Code compatibility observations
-
-Before V1 is considered complete, record a real Claude Code session through a debug/echo proxy and verify the actual compatibility surface.
-
-Confirm:
-
-- exact subscription OAuth/header behavior
-- required `anthropic-beta` capability headers
-- streaming event shapes
-- tool-use event shapes
-- Claude Code meta/internal requests
-- auxiliary endpoints, if any, that use `ANTHROPIC_BASE_URL`
-- default telemetry/observability traffic that may traverse the proxy
-- how fresh user instructions can be reliably distinguished from internal/meta turns
-
-Any behavior discovered here that changes routing or passthrough requirements must be folded back into the main specifications.
-
 ## Deferred, not open
 
 The following are intentionally deferred rather than unresolved:
