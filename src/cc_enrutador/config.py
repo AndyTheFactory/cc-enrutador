@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import os
 import re
+import string
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_ENV_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_TIERS = {"simple", "medium", "complex"}
+_ALLOWED_PROMPT_FIELDS = {
+    "task",
+    "system",
+    "is_agentic",
+    "is_mid_loop",
+    "message_count",
+    "tool_count",
+}
 
 
 class ConfigLoadError(ValueError):
@@ -25,23 +36,57 @@ class ServerConfig(StrictModel):
 
 
 class ProviderModelConfig(StrictModel):
-    provider: str
+    provider: Literal["litellm", "anthropic_subscription"]
     model: str
     api_base: str | None = None
     api_key_env: str | None = None
 
-    @field_validator("provider", "model")
+    @field_validator("model")
     @classmethod
-    def non_empty(cls, value: str) -> str:
+    def non_empty_model(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("must not be empty")
         return value
+
+    @field_validator("api_key_env")
+    @classmethod
+    def valid_api_key_env(cls, value: str | None) -> str | None:
+        if value is not None and not _ENV_NAME_PATTERN.fullmatch(value):
+            raise ValueError("must be a valid environment-variable name")
+        return value
+
+    @model_validator(mode="after")
+    def validate_provider_shape(self) -> ProviderModelConfig:
+        if self.provider == "anthropic_subscription" and not self.api_base:
+            raise ValueError("anthropic_subscription requires api_base")
+        return self
 
 
 class ClassifierOutputConfig(StrictModel):
     simple: str = "1"
     medium: str = "2"
     complex: str = "3"
+
+    @model_validator(mode="after")
+    def unique_labels(self) -> ClassifierOutputConfig:
+        labels = [self.simple.strip(), self.medium.strip(), self.complex.strip()]
+        if any(not label for label in labels):
+            raise ValueError("classifier output labels must not be empty")
+        if len(set(labels)) != 3:
+            raise ValueError("classifier output labels must be unique")
+        return self
+
+
+class ClassifierExtractionConfig(StrictModel):
+    task_head_chars: int = Field(default=700, ge=0)
+    task_tail_chars: int = Field(default=300, ge=0)
+    system_prefix_chars: int = Field(default=200, ge=0)
+
+
+class ClassifierHeuristicConfig(StrictModel):
+    simple_max_chars: int = Field(default=400, gt=0)
+    system_max_chars: int = Field(default=400, ge=0)
+    allow_simple_in_agentic: bool = False
 
 
 _DEFAULT_PROMPT = """Classify the task complexity.
@@ -65,6 +110,34 @@ class ClassifierConfig(StrictModel):
     max_output_tokens: int = Field(default=4, gt=0)
     temperature: float = Field(default=0.0, ge=0.0)
     cache_size: int = Field(default=500, ge=0)
+    extraction: ClassifierExtractionConfig = Field(default_factory=ClassifierExtractionConfig)
+    heuristic: ClassifierHeuristicConfig = Field(default_factory=ClassifierHeuristicConfig)
+
+    @field_validator("model")
+    @classmethod
+    def classifier_uses_litellm(cls, value: ProviderModelConfig) -> ProviderModelConfig:
+        if value.provider != "litellm":
+            raise ValueError("classifier model provider must be litellm")
+        return value
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, value: str) -> str:
+        fields: set[str] = set()
+        try:
+            for _, field_name, _, _ in string.Formatter().parse(value):
+                if field_name:
+                    fields.add(field_name)
+        except ValueError as exc:
+            raise ValueError(f"invalid classification prompt: {exc}") from exc
+
+        unknown = fields - _ALLOWED_PROMPT_FIELDS
+        if unknown:
+            names = ", ".join(sorted(unknown))
+            raise ValueError(f"unsupported classification prompt placeholder(s): {names}")
+        if "task" not in fields:
+            raise ValueError("classification prompt must contain {task}")
+        return value
 
 
 class ModelRoutesConfig(StrictModel):
@@ -98,6 +171,38 @@ class EscalationConfig(StrictModel):
         }
     )
 
+    @field_validator("chain")
+    @classmethod
+    def validate_chain(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        if set(value) != _TIERS:
+            raise ValueError("escalation chain must define simple, medium, and complex")
+
+        for source, targets in value.items():
+            unknown = set(targets) - _TIERS
+            if unknown:
+                raise ValueError(
+                    f"escalation chain for {source} has invalid target(s): "
+                    + ", ".join(sorted(unknown))
+                )
+            if source in targets:
+                raise ValueError(f"escalation chain for {source} cannot target itself")
+
+        def visit(node: str, active: set[str], done: set[str]) -> None:
+            if node in active:
+                raise ValueError("escalation chain contains a cycle")
+            if node in done:
+                return
+            active.add(node)
+            for target in value[node]:
+                visit(target, active, done)
+            active.remove(node)
+            done.add(node)
+
+        done: set[str] = set()
+        for tier in _TIERS:
+            visit(tier, set(), done)
+        return value
+
 
 class TimeoutsConfig(StrictModel):
     classifier_ms: int = Field(default=1500, gt=0)
@@ -117,6 +222,15 @@ class TimeoutsConfig(StrictModel):
         }
     )
 
+    @field_validator("request_ms", "stream_idle_ms")
+    @classmethod
+    def validate_tier_timeouts(cls, value: dict[str, int]) -> dict[str, int]:
+        if set(value) != _TIERS:
+            raise ValueError("tier timeout mapping must define simple, medium, and complex")
+        if any(timeout <= 0 for timeout in value.values()):
+            raise ValueError("tier timeouts must be positive")
+        return value
+
 
 class TelemetryConfig(StrictModel):
     enabled: bool = True
@@ -131,6 +245,11 @@ class DoctorConfig(StrictModel):
     check_tool_calls: bool = True
 
 
+class DebugConfig(StrictModel):
+    classification_endpoint: bool = True
+    capture_bodies: bool = False
+
+
 class LoggingConfig(StrictModel):
     level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"] = "INFO"
 
@@ -143,6 +262,7 @@ class AppConfig(StrictModel):
     timeouts: TimeoutsConfig = Field(default_factory=TimeoutsConfig)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     doctor: DoctorConfig = Field(default_factory=DoctorConfig)
+    debug: DebugConfig = Field(default_factory=DebugConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
 
