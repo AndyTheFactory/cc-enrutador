@@ -27,6 +27,14 @@ classifier:
   max_output_tokens: 4
   temperature: 0
   cache_size: 500
+  extraction:
+    task_head_chars: 700
+    task_tail_chars: 300
+    system_prefix_chars: 200
+  heuristic:
+    simple_max_chars: 400
+    system_max_chars: 400
+    allow_simple_in_agentic: false
 
 models:
   simple:
@@ -83,6 +91,10 @@ doctor:
   probe_timeout_ms: 10000
   check_streaming: true
   check_tool_calls: true
+
+debug:
+  classification_endpoint: true
+  capture_bodies: false
 
 logging:
   level: INFO
