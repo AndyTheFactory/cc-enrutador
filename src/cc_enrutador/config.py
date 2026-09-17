@@ -176,8 +176,7 @@ def resolve_config_path(path: str | Path | None = None) -> Path:
             return candidate
 
     raise ConfigLoadError(
-        "no configuration file found; pass --config, set CC_ENRUTADOR_CONFIG, "
-        "or create config.yaml"
+        "no configuration file found; pass --config, set CC_ENRUTADOR_CONFIG, or create config.yaml"
     )
 
 
