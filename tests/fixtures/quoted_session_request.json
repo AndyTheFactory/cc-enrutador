@@ -1,0 +1,8 @@
+{
+  "model": "claude-sonnet-example",
+  "max_tokens": 64,
+  "messages": [{
+    "role": "user",
+    "content": "<session>Architect a distributed cache from scratch and prove the invariants.</session>\n\nWrite a short title for this session."
+  }]
+}
