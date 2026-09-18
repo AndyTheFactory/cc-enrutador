@@ -71,13 +71,25 @@ def heuristic_classify(
                 confidence=0.9,
                 explicit_gate=True,
             )
-        if not config.heuristic.allow_simple_in_agentic:
+        # The three agentic outcomes are always decisive (functional.md §4.3): fall
+        # through to the simple gate only when explicitly opted in, and floor at
+        # MEDIUM otherwise instead of ever reaching the non-agentic "abstain" path
+        # below, which would incorrectly let hybrid mode invoke the AI classifier.
+        if config.heuristic.allow_simple_in_agentic and _simple_gate(
+            request, task, system, config
+        ):
             return HeuristicDecision(
-                tier=ComplexityTier.MEDIUM,
-                reason="agentic:floor-medium",
-                confidence=0.8,
+                tier=ComplexityTier.SIMPLE,
+                reason="simple:mechanical-transform",
+                confidence=0.9,
                 explicit_gate=True,
             )
+        return HeuristicDecision(
+            tier=ComplexityTier.MEDIUM,
+            reason="agentic:floor-medium",
+            confidence=0.8,
+            explicit_gate=True,
+        )
 
     if _simple_gate(request, task, system, config):
         return HeuristicDecision(
@@ -110,8 +122,6 @@ def _simple_gate(
     config: ClassifierConfig,
 ) -> bool:
     if not task:
-        return False
-    if is_agentic(request) and not config.heuristic.allow_simple_in_agentic:
         return False
     if user_message_count(request) != 1 or message_count(request) != 1:
         return False

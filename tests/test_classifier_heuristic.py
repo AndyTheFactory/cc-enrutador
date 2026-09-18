@@ -93,6 +93,41 @@ def test_agentic_fresh_complex_turn_is_complex() -> None:
     assert result.tier == ComplexityTier.COMPLEX
 
 
+def _agentic_config_allowing_simple() -> ClassifierConfig:
+    return ClassifierConfig.model_validate(
+        {
+            "mode": "heuristic",
+            "model": {"provider": "litellm", "model": "test/classifier"},
+            "heuristic": {"allow_simple_in_agentic": True},
+        }
+    )
+
+
+def test_agentic_allow_simple_opt_in_routes_mechanical_task_to_simple() -> None:
+    result = heuristic_classify(
+        request(
+            "Rename foo to bar.",
+            tools=[{"name": "edit", "input_schema": {"type": "object"}}],
+        ),
+        _agentic_config_allowing_simple(),
+    )
+    assert result.tier == ComplexityTier.SIMPLE
+    assert result.explicit_gate is True
+
+
+def test_agentic_allow_simple_opt_in_still_floors_non_mechanical_task_at_medium() -> None:
+    result = heuristic_classify(
+        request(
+            "Fix the parser bug in this function.",
+            tools=[{"name": "edit", "input_schema": {"type": "object"}}],
+        ),
+        _agentic_config_allowing_simple(),
+    )
+    assert result.tier == ComplexityTier.MEDIUM
+    assert result.reason == "agentic:floor-medium"
+    assert result.explicit_gate is True
+
+
 def test_mid_loop_is_medium_even_if_tool_result_contains_depth_words() -> None:
     payload = {
         "tools": [{"name": "read", "input_schema": {"type": "object"}}],
