@@ -119,8 +119,9 @@ class ClassificationResult(BaseModel):
 ```python
 class RouteDecision(BaseModel):
     tier: ComplexityTier
-    target: str
-    fallback_chain: list[str] = []
+    provider: str
+    model: str
+    fallback_chain: list[ComplexityTier] = []
 ```
 
 ## 6. Task extraction
@@ -357,33 +358,48 @@ server:
 
 classifier:
   mode: hybrid
-  ai_model: ollama/qwen3:4b
+  model:
+    provider: litellm
+    model: ollama/qwen3:4b
+    api_base: http://127.0.0.1:11434
+    api_key_env: null
   timeout_ms: 1500
   cache_size: 500
-  simple_max_chars: 400
-  system_max_chars: 400
+  heuristic:
+    simple_max_chars: 400
+    system_max_chars: 400
+    allow_simple_in_agentic: false
 
-routes:
+models:
   simple:
+    provider: litellm
     model: ollama/qwen3-coder
     api_base: http://127.0.0.1:11434
-    fallbacks: [medium]
 
   medium:
+    provider: litellm
     model: openai/gpt-oss-120b
     api_base: ${GPT_OSS_BASE_URL}
     api_key_env: GPT_OSS_API_KEY
-    fallbacks: [complex]
 
   complex:
     provider: anthropic_subscription
-    upstream: https://api.anthropic.com
+    model: passthrough
+    api_base: https://api.anthropic.com
+
+escalation:
+  enabled: true
+  chain:
+    simple: [medium, complex]
+    medium: [complex]
+    complex: []
 
 telemetry:
   enabled: true
   persist_prompts: false
+  preserve_claude_default: true
 
- debug:
+debug:
   classification_endpoint: true
   capture_bodies: false
 ```
@@ -409,6 +425,7 @@ confidence
 classifier_latency_ms
 target
 fallbacks_used
+model_latency_ms
 total_latency_ms
 status
 ```
