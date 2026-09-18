@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 
 from cc_enrutador.config import AppConfig
-from cc_enrutador.models import ComplexityTier, RouteDecision
+from cc_enrutador.models import RouteDecision
 from cc_enrutador.providers.anthropic_passthrough import AnthropicPassthroughProvider
 from cc_enrutador.providers.base import ExecutionProvider
 from cc_enrutador.providers.litellm_provider import CompletionCallable, LiteLLMProvider
@@ -32,6 +30,3 @@ class ProviderRegistry:
             return AnthropicPassthroughProvider(target, client=self.anthropic_client)
         raise ValueError(f"unsupported execution provider: {target.provider}")
 
-
-def tier_from_value(value: str) -> ComplexityTier:
-    return ComplexityTier(value)
