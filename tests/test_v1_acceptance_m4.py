@@ -13,7 +13,6 @@ from cc_enrutador.classifier import ClassifierService
 from cc_enrutador.config import AppConfig, load_config
 from cc_enrutador.doctor import CheckStatus, Doctor
 from cc_enrutador.models import ComplexityTier, RouteDecision
-from cc_enrutador.providers.base import ProviderError
 from cc_enrutador.streaming import forward_stream
 
 
