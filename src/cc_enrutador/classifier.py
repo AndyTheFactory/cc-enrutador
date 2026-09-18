@@ -232,10 +232,10 @@ async def litellm_completion(prompt: str, config: ClassifierConfig) -> str:
         if api_key:
             kwargs["api_key"] = api_key
 
-    response = await asyncio.wait_for(
-        litellm.acompletion(**kwargs),
-        timeout=config.timeout_ms / 1000,
-    )
+    # ClassifierService.classify() already wraps every ai_completion call (this one
+    # included) in asyncio.wait_for(timeout_ms); litellm's own "timeout" kwarg above
+    # covers the request itself. A second asyncio.wait_for here would be redundant.
+    response = await litellm.acompletion(**kwargs)
     response_any = cast(Any, response)
     content = response_any.choices[0].message.content
     if not isinstance(content, str):
