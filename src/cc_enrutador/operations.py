@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,7 @@ class ExecutionResult:
     payload: dict[str, Any]
     final_route: RouteDecision
     attempted_tiers: list[ComplexityTier]
+    model_latency_ms: float
 
 
 def route_for_tier(tier: ComplexityTier, config: AppConfig) -> RouteDecision:
@@ -79,6 +81,7 @@ class ExecutionService:
     ) -> ExecutionResult:
         attempted = attempted_tiers if attempted_tiers is not None else []
         last_error: BaseException | None = None
+        started = time.perf_counter()
 
         for tier in escalation_tiers(initial_tier, self.config):
             attempted.append(tier)
@@ -97,6 +100,7 @@ class ExecutionService:
                 payload=payload,
                 final_route=route,
                 attempted_tiers=attempted,
+                model_latency_ms=(time.perf_counter() - started) * 1000,
             )
 
         if isinstance(last_error, ProviderError):
