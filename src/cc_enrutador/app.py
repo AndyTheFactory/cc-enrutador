@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -90,7 +90,7 @@ def create_app(
             )
 
             async def observed_stream() -> AsyncIterator[bytes]:
-                status = "success"
+                status: Literal["success", "failure"] = "success"
                 try:
                     async for chunk in forward_stream(upstream_stream, request.is_disconnected):
                         yield chunk
