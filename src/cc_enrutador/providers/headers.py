@@ -27,19 +27,6 @@ def headers_for_non_anthropic(headers: Mapping[str, str]) -> dict[str, str]:
 
 def headers_for_anthropic(headers: Mapping[str, str]) -> dict[str, str]:
     normalized = normalized_headers(headers)
-    allowed = {
-        "authorization",
-        "x-api-key",
-        "anthropic-version",
-        "anthropic-beta",
-        "content-type",
-        "accept",
-        "user-agent",
-    }
-    result = {
-        key: value
-        for key, value in normalized.items()
-        if key in allowed and key not in _BLOCKED_HOP_HEADERS
-    }
+    result = {key: value for key, value in normalized.items() if key not in _BLOCKED_HOP_HEADERS}
     result.setdefault("content-type", "application/json")
     return result

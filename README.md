@@ -24,7 +24,7 @@ M0 provides the project foundation:
 - synthetic Anthropic request fixtures
 - third-party attribution
 
-M1 adds task extraction, heuristic/AI/hybrid classification, classifier caching, and the `/debug/classify` development endpoint. M2 adds the runnable `/v1/messages` proxy, LiteLLM simple/medium execution, direct Anthropic subscription passthrough, credential isolation, Anthropic-compatible response normalization, streaming/tool support, and `/health`. Operational escalation, telemetry, and full doctor diagnostics remain M3.
+M1 adds task extraction, heuristic/AI/hybrid classification, classifier caching, and the `/debug/classify` development endpoint. M2 adds the runnable `/v1/messages` proxy, LiteLLM simple/medium execution, direct Anthropic subscription passthrough, credential isolation, Anthropic-compatible response normalization, streaming/tool support, and `/health`. M3 adds task-level tier stickiness, provider-failure escalation, effective timeout handling, structured router telemetry, auxiliary Anthropic passthrough, and safe/live/JSON doctor diagnostics.
 
 ## Development setup
 
@@ -71,7 +71,7 @@ uv run cc-enrutador serve --help
 uv run cc-enrutador doctor --help
 ```
 
-`serve` starts the FastAPI/Uvicorn routing proxy using the configured host and port. Full `doctor` diagnostics are implemented in M3.
+`serve` starts the FastAPI/Uvicorn routing proxy using the configured host and port. `doctor` performs safe local diagnostics by default; `doctor --live` performs minimal provider probes and `doctor --json` emits machine-readable results.
 
 ## Configuration
 
@@ -114,7 +114,7 @@ name (for example `api_key_env: GPT_OSS_API_KEY`), not the secret value.
 - Claude OAuth/API credentials must never be logged.
 - Request/response bodies are not persisted by default.
 - Router telemetry is separate from Claude Code's own telemetry.
-- The future proxy must strip Claude OAuth before sending requests to non-Anthropic providers.
+- The proxy strips Claude OAuth before sending requests to non-Anthropic providers.
 
 ## Provenance
 
