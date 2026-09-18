@@ -6,8 +6,24 @@ from typing import Any
 import httpx
 
 from cc_enrutador.config import ProviderModelConfig
-from cc_enrutador.providers.base import ProviderError
+from cc_enrutador.providers.base import ProviderError, ProviderRequestError
 from cc_enrutador.providers.headers import headers_for_anthropic
+
+# 5xx and 429 are transport/availability failures worth escalating to a different
+# backend; other 4xx mean the request itself was rejected and escalating would just
+# waste usage on a request that will fail identically upstream.
+_NON_ESCALATING_STATUS = range(400, 500)
+_RETRYABLE_STATUS_EXCEPTIONS = {429}
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in _NON_ESCALATING_STATUS and status not in _RETRYABLE_STATUS_EXCEPTIONS:
+            raise ProviderRequestError(f"Anthropic rejected the request: {exc}") from exc
+        raise
 
 
 class AnthropicPassthroughProvider:
@@ -42,7 +58,7 @@ class AnthropicPassthroughProvider:
                 headers=headers_for_anthropic(headers),
                 json=request_body,
             )
-            response.raise_for_status()
+            _raise_for_status(response)
             payload = response.json()
             if not isinstance(payload, dict):
                 raise ProviderError("Anthropic returned a non-object JSON response")
@@ -106,7 +122,7 @@ class AnthropicPassthroughProvider:
                 headers=headers_for_anthropic(headers),
                 json=request_body,
             ) as response:
-                response.raise_for_status()
+                _raise_for_status(response)
                 async for chunk in response.aiter_bytes():
                     if chunk:
                         yield chunk

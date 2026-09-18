@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from typing import Any, cast
 
 from cc_enrutador.config import ProviderModelConfig
-from cc_enrutador.providers.base import ProviderError
+from cc_enrutador.providers.base import ProviderError, ProviderRequestError
 from cc_enrutador.providers.headers import headers_for_non_anthropic
 from cc_enrutador.providers.normalization import (
     LiteLLMStreamNormalizer,
@@ -14,6 +14,28 @@ from cc_enrutador.providers.normalization import (
 )
 
 CompletionCallable = Callable[..., Awaitable[Any]]
+
+# litellm exception names that mean "the request itself was rejected", not "the
+# transport/backend is unavailable" — these must not trigger provider-failure
+# escalation to a different tier (see functional.md §8).
+_NON_ESCALATING_LITELLM_EXCEPTIONS = frozenset(
+    {
+        "BadRequestError",
+        "InvalidRequestError",
+        "AuthenticationError",
+        "PermissionDeniedError",
+        "NotFoundError",
+        "UnprocessableEntityError",
+        "ContentPolicyViolationError",
+        "ContextWindowExceededError",
+    }
+)
+
+
+def _wrap_completion_error(exc: Exception) -> ProviderError:
+    if type(exc).__name__ in _NON_ESCALATING_LITELLM_EXCEPTIONS:
+        return ProviderRequestError(f"LiteLLM rejected the request: {exc}")
+    return ProviderError(f"LiteLLM execution failed: {exc}")
 
 
 class LiteLLMProvider:
@@ -51,7 +73,7 @@ class LiteLLMProvider:
         try:
             return await completion(**kwargs)
         except Exception as exc:
-            raise ProviderError(f"LiteLLM execution failed: {exc}") from exc
+            raise _wrap_completion_error(exc) from exc
 
     async def complete(
         self,
@@ -61,7 +83,10 @@ class LiteLLMProvider:
         # Explicitly normalize/filter headers even though LiteLLM is invoked as a Python API.
         headers_for_non_anthropic(headers)
         response = await self._call(stream=False, body=body)
-        return litellm_response_to_anthropic(response, self.config.model)
+        try:
+            return litellm_response_to_anthropic(response, self.config.model)
+        except ValueError as exc:
+            raise ProviderRequestError(f"LiteLLM returned a malformed response: {exc}") from exc
 
     async def stream(
         self,

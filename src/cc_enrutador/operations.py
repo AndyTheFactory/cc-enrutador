@@ -9,7 +9,7 @@ from typing import Any
 from cc_enrutador.config import AppConfig
 from cc_enrutador.execution import ProviderRegistry
 from cc_enrutador.models import ComplexityTier, RouteDecision
-from cc_enrutador.providers.base import ProviderError
+from cc_enrutador.providers.base import ProviderError, ProviderRequestError
 from cc_enrutador.routing import provider_for_tier
 from cc_enrutador.state import TaskStateStore
 from cc_enrutador.timeouts import TimeoutPolicy
@@ -92,6 +92,8 @@ class ExecutionService:
                     provider.complete(body, headers),
                     timeout=self.timeouts.request_seconds(tier),
                 )
+            except ProviderRequestError:
+                raise
             except (ProviderError, TimeoutError) as exc:
                 last_error = exc
                 continue
@@ -144,7 +146,7 @@ class ExecutionService:
                 close = getattr(upstream, "aclose", None)
                 if close is not None:
                     await close()
-                if yielded:
+                if yielded or isinstance(exc, ProviderRequestError):
                     raise ProviderError(
                         f"stream failed after response started on {tier.value}: {exc}"
                     ) from exc

@@ -5,7 +5,13 @@ from typing import Any, Protocol
 
 
 class ProviderError(RuntimeError):
-    """Raised when an upstream provider cannot satisfy a request."""
+    """Raised on a transport/availability failure. Triggers provider-failure escalation."""
+
+
+class ProviderRequestError(ProviderError):
+    """Raised when the provider rejected the request itself (bad request, auth, content
+    policy, etc). Not a transport failure, so it must not trigger escalation — retrying
+    the same malformed/rejected request against a bigger model wastes upstream usage."""
 
 
 class ExecutionProvider(Protocol):
