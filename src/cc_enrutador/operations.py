@@ -27,9 +27,7 @@ def route_for_tier(tier: ComplexityTier, config: AppConfig) -> RouteDecision:
         tier=tier,
         provider=target.provider,
         model=target.model,
-        fallback_chain=[
-            ComplexityTier(item) for item in config.escalation.chain[tier.value]
-        ],
+        fallback_chain=[ComplexityTier(item) for item in config.escalation.chain[tier.value]],
     )
 
 
