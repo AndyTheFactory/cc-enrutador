@@ -4,7 +4,7 @@ import os
 import re
 import string
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -255,6 +255,35 @@ class LoggingConfig(StrictModel):
 
 
 class AppConfig(StrictModel):
+    @model_validator(mode="before")
+    @classmethod
+    def synchronize_classifier_timeout(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        data = dict(value)
+        classifier_raw = data.get("classifier")
+        timeouts_raw = data.get("timeouts")
+        classifier = dict(classifier_raw) if isinstance(classifier_raw, dict) else {}
+        timeouts = dict(timeouts_raw) if isinstance(timeouts_raw, dict) else {}
+
+        has_classifier = "timeout_ms" in classifier
+        has_global = "classifier_ms" in timeouts
+
+        if has_classifier and has_global:
+            if classifier["timeout_ms"] != timeouts["classifier_ms"]:
+                raise ValueError(
+                    "classifier.timeout_ms and timeouts.classifier_ms must match in V1"
+                )
+        elif has_classifier:
+            timeouts["classifier_ms"] = classifier["timeout_ms"]
+            data["timeouts"] = timeouts
+        elif has_global and classifier:
+            classifier["timeout_ms"] = timeouts["classifier_ms"]
+            data["classifier"] = classifier
+
+        return data
+
     server: ServerConfig = Field(default_factory=ServerConfig)
     classifier: ClassifierConfig
     models: ModelRoutesConfig
