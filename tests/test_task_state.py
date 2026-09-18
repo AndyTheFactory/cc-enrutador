@@ -30,9 +30,7 @@ def test_current_task_text_skips_trailing_tool_result() -> None:
 
 
 def test_task_identity_stays_stable_through_tool_loop() -> None:
-    initial = {
-        "messages": [{"role": "user", "content": "Fix the parser bug."}]
-    }
+    initial = {"messages": [{"role": "user", "content": "Fix the parser bug."}]}
     continued = {
         "messages": [
             {"role": "user", "content": "Fix the parser bug."},
@@ -57,9 +55,7 @@ def test_task_identity_stays_stable_through_tool_loop() -> None:
 
 
 def test_fresh_user_instruction_changes_task_identity() -> None:
-    first = {
-        "messages": [{"role": "user", "content": "Fix the parser bug."}]
-    }
+    first = {"messages": [{"role": "user", "content": "Fix the parser bug."}]}
     second = {
         "messages": [
             {"role": "user", "content": "Fix the parser bug."},
