@@ -50,8 +50,8 @@ models:
   medium:
     provider: litellm
     model: openai/gpt-oss-120b
-    api_base: ${GPT_OSS_BASE_URL}
-    api_key_env: GPT_OSS_API_KEY
+    api_base: ${MEDIUM_BASE_URL}
+    api_key_env: MEDIUM_API_KEY
 
   complex:
     provider: anthropic_subscription

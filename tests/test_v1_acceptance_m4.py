@@ -88,7 +88,7 @@ class FakeRegistry:
 def test_reference_config_loads_with_documented_environment(
     monkeypatch: Any,
 ) -> None:
-    monkeypatch.setenv("GPT_OSS_BASE_URL", "http://127.0.0.1:8000/v1")
+    monkeypatch.setenv("MEDIUM_BASE_URL", "http://127.0.0.1:8000/v1")
     config = load_config(Path("config.example.yaml"))
 
     assert config.classifier.mode == "hybrid"

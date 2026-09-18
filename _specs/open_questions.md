@@ -24,7 +24,7 @@ the implementation does not assume that it does.
 
 V1 treats the medium tier as a generic LiteLLM target.
 
-The reference GPT-OSS-120B identifier and `GPT_OSS_BASE_URL` demonstrate an
+The reference GPT-OSS-120B identifier and `MEDIUM_BASE_URL` demonstrate an
 OpenAI-compatible remote/self-hosted deployment, but the router does not prescribe whether
 that endpoint runs locally, on vLLM, or at a third-party provider.
 

@@ -85,8 +85,8 @@ models:
   medium:
     provider: litellm
     model: openai/gpt-oss-120b
-    api_base: ${GPT_OSS_BASE_URL}
-    api_key_env: GPT_OSS_API_KEY
+    api_base: ${MEDIUM_BASE_URL}
+    api_key_env: MEDIUM_API_KEY
 
   complex:
     provider: anthropic_subscription
@@ -335,7 +335,7 @@ ${NAME}
 Secrets should normally be referenced indirectly with `api_key_env`:
 
 ```yaml
-api_key_env: GPT_OSS_API_KEY
+api_key_env: MEDIUM_API_KEY
 ```
 
 The application must resolve secrets at runtime and must not emit their values in logs, diagnostics, exceptions, or debug endpoints.

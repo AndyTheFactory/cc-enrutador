@@ -74,13 +74,13 @@ cp config.example.yaml config.yaml
 Set the medium example endpoint:
 
 ```bash
-export GPT_OSS_BASE_URL=http://127.0.0.1:8000/v1
+export MEDIUM_BASE_URL=http://127.0.0.1:8000/v1
 ```
 
 PowerShell:
 
 ```powershell
-$env:GPT_OSS_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:MEDIUM_BASE_URL = "http://127.0.0.1:8000/v1"
 ```
 
 If the endpoint requires a key, set the environment variable referenced by
@@ -245,7 +245,7 @@ CI runs these checks on Linux and Windows and also smoke-tests the CLI.
 
 ## Troubleshooting
 
-### Configuration fails because `GPT_OSS_BASE_URL` is missing
+### Configuration fails because `MEDIUM_BASE_URL` is missing
 
 The reference YAML uses environment interpolation for the medium example endpoint. Export
 the variable or replace the reference with your own endpoint.
