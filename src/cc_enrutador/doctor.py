@@ -39,9 +39,11 @@ class DoctorReport(BaseModel):
 
     @property
     def exit_code(self) -> int:
-        return 1 if any(
-            check.status is CheckStatus.FAIL and check.required for check in self.checks
-        ) else 0
+        return (
+            1
+            if any(check.status is CheckStatus.FAIL and check.required for check in self.checks)
+            else 0
+        )
 
 
 class Doctor:
@@ -334,8 +336,7 @@ class Doctor:
             )
             content = response.get("content")
             has_tool = isinstance(content, list) and any(
-                isinstance(block, dict) and block.get("type") == "tool_use"
-                for block in content
+                isinstance(block, dict) and block.get("type") == "tool_use" for block in content
             )
             if not has_tool:
                 raise ProviderError("provider did not return tool_use")
