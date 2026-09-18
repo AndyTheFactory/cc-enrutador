@@ -21,9 +21,11 @@ class LiteLLMProvider:
         self,
         config: ProviderModelConfig,
         completion: CompletionCallable | None = None,
+        timeout_seconds: float | None = None,
     ) -> None:
         self.config = config
         self._completion = completion
+        self.timeout_seconds = timeout_seconds
 
     async def _call(self, *, stream: bool, body: Mapping[str, Any]) -> Any:
         if self._completion is None:
@@ -36,6 +38,8 @@ class LiteLLMProvider:
         kwargs = anthropic_request_to_litellm(body)
         kwargs["model"] = self.config.model
         kwargs["stream"] = stream
+        if self.timeout_seconds is not None:
+            kwargs["timeout"] = self.timeout_seconds
 
         if self.config.api_base:
             kwargs["api_base"] = self.config.api_base
