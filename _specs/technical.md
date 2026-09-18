@@ -432,7 +432,8 @@ status
 
 Never log authorization headers.
 
-Never persist prompt/response bodies unless explicit debug capture is enabled.
+V1 does not persist prompt/response bodies. Reserved prompt/body capture flags must remain
+disabled; enabling them fails configuration validation.
 
 ### 14.2 Preserve Claude Code default telemetry
 
