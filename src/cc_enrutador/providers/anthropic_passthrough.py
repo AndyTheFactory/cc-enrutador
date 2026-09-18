@@ -15,9 +15,11 @@ class AnthropicPassthroughProvider:
         self,
         config: ProviderModelConfig,
         client: httpx.AsyncClient | None = None,
+        connect_timeout_seconds: float | None = None,
     ) -> None:
         self.config = config
         self._client = client
+        self.connect_timeout_seconds = connect_timeout_seconds
 
     @property
     def messages_url(self) -> str:
@@ -30,7 +32,9 @@ class AnthropicPassthroughProvider:
         headers: Mapping[str, str],
     ) -> dict[str, Any]:
         request_body = dict(body)
-        client = self._client or httpx.AsyncClient()
+        client = self._client or httpx.AsyncClient(
+            timeout=httpx.Timeout(None, connect=self.connect_timeout_seconds)
+        )
         owns_client = self._client is None
         try:
             response = await client.post(
@@ -62,7 +66,9 @@ class AnthropicPassthroughProvider:
         if query:
             url = f"{url}?{query}"
 
-        client = self._client or httpx.AsyncClient()
+        client = self._client or httpx.AsyncClient(
+            timeout=httpx.Timeout(None, connect=self.connect_timeout_seconds)
+        )
         owns_client = self._client is None
         try:
             response = await client.request(
@@ -89,7 +95,9 @@ class AnthropicPassthroughProvider:
         headers: Mapping[str, str],
     ) -> AsyncIterator[bytes]:
         request_body = dict(body)
-        client = self._client or httpx.AsyncClient()
+        client = self._client or httpx.AsyncClient(
+            timeout=httpx.Timeout(None, connect=self.connect_timeout_seconds)
+        )
         owns_client = self._client is None
         try:
             async with client.stream(
