@@ -71,21 +71,40 @@ uv sync
 cp config.example.yaml config.yaml
 ```
 
-Set the medium example endpoint:
+The reference configuration uses environment interpolation for both the simple and medium
+routes. Set all referenced variables before loading the config.
+
+Bash / zsh:
 
 ```bash
+export SIMPLE_MODEL=ollama/qwen3-coder
+export SIMPLE_BASE_URL=http://127.0.0.1:8000/v1
+export SIMPLE_API_KEY=
+
+export MEDIUM_MODEL=openai/gpt-oss-120b
 export MEDIUM_BASE_URL=http://127.0.0.1:8000/v1
+export MEDIUM_API_KEY=
 ```
 
 PowerShell:
 
 ```powershell
+$env:SIMPLE_MODEL = "ollama/qwen3-coder"
+$env:SIMPLE_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:SIMPLE_API_KEY = ""
+
+$env:MEDIUM_MODEL = "openai/gpt-oss-120b"
 $env:MEDIUM_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:MEDIUM_API_KEY = ""
 ```
 
-If the endpoint requires a key, set the environment variable referenced by
-`api_key_env`. If it does not, the variable may remain empty; `doctor` reports a warning,
-not a hard failure.
+If an endpoint requires authentication, put the **environment variable name** in
+`api_key_env` and set that variable to the real key. The values shown above leave the
+reference key variables empty for unauthenticated endpoints.
+
+`.env.example` documents the same variables, but cc-enrutador does **not** automatically
+load `.env` files. Export the variables in your shell, use your shell's env-file mechanism,
+or replace the `${...}` references in `config.yaml` with fixed non-secret values.
 
 Validate configuration:
 
@@ -245,10 +264,12 @@ CI runs these checks on Linux and Windows and also smoke-tests the CLI.
 
 ## Troubleshooting
 
-### Configuration fails because `MEDIUM_BASE_URL` is missing
+### Configuration fails because an environment variable is missing
 
-The reference YAML uses environment interpolation for the medium example endpoint. Export
-the variable or replace the reference with your own endpoint.
+The reference YAML requires `SIMPLE_MODEL`, `SIMPLE_BASE_URL`, `SIMPLE_API_KEY`,
+`MEDIUM_MODEL`, `MEDIUM_BASE_URL`, and `MEDIUM_API_KEY`. Export all referenced
+variables before loading the configuration, or replace the corresponding `${...}`
+references in `config.yaml`.
 
 ### Doctor warns about a missing provider API key
 
