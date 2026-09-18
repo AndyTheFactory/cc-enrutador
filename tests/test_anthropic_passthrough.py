@@ -72,7 +72,7 @@ def test_anthropic_passthrough_streams_raw_sse() -> None:
         return httpx.Response(
             200,
             headers={"content-type": "text/event-stream"},
-            content=b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+            content=b'event: message_stop\ndata: {"type":"message_stop"}\n\n',
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
