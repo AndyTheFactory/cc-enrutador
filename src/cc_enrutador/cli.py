@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import json
 from collections.abc import Sequence
 
 from cc_enrutador import __version__
 from cc_enrutador.app import create_app
 from cc_enrutador.config import ConfigLoadError, load_config
+from cc_enrutador.doctor import Doctor, format_report
 from cc_enrutador.logging import configure_logging
 
 
@@ -23,8 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = subparsers.add_parser("doctor", help="Diagnose configuration and providers.")
     doctor.add_argument("--config", help="Path to YAML configuration.")
-    doctor.add_argument("--live", action="store_true", help="Reserved for live probes.")
-    doctor.add_argument("--json", action="store_true", help="Reserved for JSON diagnostics.")
+    doctor.add_argument("--live", action="store_true", help="Run minimal live provider probes.")
+    doctor.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
 
     return parser
 
@@ -66,11 +69,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "doctor":
-        status = _load_or_report(args.config)
-        if status:
-            return status
-        print("doctor command is reserved for M3 diagnostics implementation")
-        return 0
+        try:
+            config = load_config(args.config)
+        except ConfigLoadError as exc:
+            if args.json:
+                print(json.dumps({"error": "configuration", "message": str(exc)}))
+            else:
+                print(f"configuration error: {exc}")
+            return 2
+
+        configure_logging(config.logging.level)
+        report = asyncio.run(Doctor(config).run(live=args.live))
+        if args.json:
+            payload = report.model_dump(mode="json")
+            payload["exit_code"] = report.exit_code
+            print(json.dumps(payload, separators=(",", ":")))
+        else:
+            print(format_report(report))
+        return report.exit_code
 
     parser.error(f"unknown command: {args.command}")
     return 2
