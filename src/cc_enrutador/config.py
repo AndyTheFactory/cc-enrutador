@@ -235,7 +235,14 @@ class TimeoutsConfig(StrictModel):
 class TelemetryConfig(StrictModel):
     enabled: bool = True
     persist_prompts: bool = False
-    preserve_claude_default: bool = True
+    preserve_claude_default: Literal[True] = True
+
+    @field_validator("persist_prompts")
+    @classmethod
+    def reject_prompt_persistence_in_v1(cls, value: bool) -> bool:
+        if value:
+            raise ValueError("telemetry.persist_prompts=true is not supported in V1")
+        return value
 
 
 class DoctorConfig(StrictModel):
@@ -248,6 +255,13 @@ class DoctorConfig(StrictModel):
 class DebugConfig(StrictModel):
     classification_endpoint: bool = True
     capture_bodies: bool = False
+
+    @field_validator("capture_bodies")
+    @classmethod
+    def reject_body_capture_in_v1(cls, value: bool) -> bool:
+        if value:
+            raise ValueError("debug.capture_bodies=true is not supported in V1")
+        return value
 
 
 class LoggingConfig(StrictModel):
