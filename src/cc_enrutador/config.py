@@ -145,6 +145,16 @@ class ModelRoutesConfig(StrictModel):
     medium: ProviderModelConfig
     complex: ProviderModelConfig
 
+    @model_validator(mode="after")
+    def complex_requires_anthropic_subscription(self) -> ModelRoutesConfig:
+        if self.complex.provider != "anthropic_subscription":
+            raise ValueError(
+                "models.complex.provider must be anthropic_subscription: "
+                "the complex route's Claude OAuth header is forwarded verbatim to it, "
+                "and forwarding that header to a non-Anthropic provider is a credential leak"
+            )
+        return self
+
 
 class ProviderFailureEscalationConfig(StrictModel):
     simple_to_medium: bool = True
