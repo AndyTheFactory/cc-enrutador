@@ -276,7 +276,10 @@ V1 configuration must reserve the policy shape, but semantic escalation may rema
 
 Within an ongoing task, automatic escalation may increase the minimum level. The router should not automatically demote the same task again until a fresh user task is detected when `never_demote_within_task: true`.
 
-This setting depends on session/task tracking and may initially be inactive if V1 does not yet implement task stickiness.
+V1 implements this policy using a bounded in-process task-state store keyed by the latest
+semantic user instruction (plus explicit session metadata when available). Tool-result-only
+continuations retain the same task identity; a fresh semantic user instruction starts a new
+task identity.
 
 ## 8. Timeouts
 
