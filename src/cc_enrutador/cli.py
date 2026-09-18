@@ -5,6 +5,8 @@ import asyncio
 import json
 from collections.abc import Sequence
 
+from dotenv import load_dotenv
+
 from cc_enrutador import __version__
 from cc_enrutador.app import create_app
 from cc_enrutador.config import AppConfig, ConfigLoadError, load_config
@@ -49,6 +51,7 @@ def _load_or_report(config_path: str | None, *, as_json: bool = False) -> AppCon
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    load_dotenv()
 
     if args.command is None:
         parser.print_help()
