@@ -62,6 +62,21 @@ def latest_user_text(request: Mapping[str, Any]) -> str:
     return ""
 
 
+def current_task_text(request: Mapping[str, Any]) -> str:
+    """Return the latest semantic user instruction, skipping tool-result-only turns."""
+    messages = request.get("messages")
+    if not isinstance(messages, list):
+        return ""
+
+    for message in reversed(messages):
+        if not isinstance(message, Mapping) or message.get("role") != "user":
+            continue
+        text = _text_from_content(message.get("content"))
+        if text:
+            return text
+    return ""
+
+
 def system_text(request: Mapping[str, Any]) -> str:
     system = request.get("system")
     if isinstance(system, str):
