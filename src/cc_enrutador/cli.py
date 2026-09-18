@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Sequence
 
 from cc_enrutador import __version__
+from cc_enrutador.app import create_app
 from cc_enrutador.config import ConfigLoadError, load_config
 from cc_enrutador.logging import configure_logging
 
@@ -48,10 +49,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "serve":
-        status = _load_or_report(args.config)
-        if status:
-            return status
-        print("serve command is reserved for M2 provider/proxy implementation")
+        try:
+            config = load_config(args.config)
+        except ConfigLoadError as exc:
+            print(f"configuration error: {exc}")
+            return 2
+        configure_logging(config.logging.level)
+
+        import uvicorn
+
+        uvicorn.run(
+            create_app(config),
+            host=config.server.host,
+            port=config.server.port,
+        )
         return 0
 
     if args.command == "doctor":
