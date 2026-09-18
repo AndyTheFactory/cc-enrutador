@@ -413,3 +413,28 @@ Configuration support is complete when:
 10. no classifier code contains provider/model names;
 11. doctor settings are configurable and `--live` can override the live-probe default;
 12. disabling router telemetry does not disable Claude Code's default telemetry.
+
+
+## 16. V1 sensitive-capture invariants
+
+V1 does not implement prompt/response persistence inside the router.
+
+The following values are therefore rejected at configuration validation time:
+
+```yaml
+telemetry:
+  persist_prompts: true
+
+debug:
+  capture_bodies: true
+
+telemetry:
+  preserve_claude_default: false
+```
+
+Compatibility capture is an external validation activity documented in
+`docs/v1-validation.md`; captured traffic must be sanitized before being committed.
+
+The duplicated classifier timeout fields are retained for V1 compatibility. If only one of
+`classifier.timeout_ms` or `timeouts.classifier_ms` is supplied, the other is synchronized
+to the same value. If both are supplied, they must match.
