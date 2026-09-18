@@ -135,9 +135,7 @@ def test_tool_loop_keeps_complex_floor_until_fresh_instruction() -> None:
                 {"role": "user", "content": "Design the architecture."},
                 {
                     "role": "assistant",
-                    "content": [
-                        {"type": "tool_use", "id": "toolu_1", "name": "read", "input": {}}
-                    ],
+                    "content": [{"type": "tool_use", "id": "toolu_1", "name": "read", "input": {}}],
                 },
                 {
                     "role": "user",
@@ -222,7 +220,5 @@ def test_auxiliary_traffic_bypasses_classifier_and_router_telemetry() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"accepted": True}
-    assert registry.auxiliary.calls == [
-        ("POST", "api/event", b'{"event":"test"}', "source=claude")
-    ]
+    assert registry.auxiliary.calls == [("POST", "api/event", b'{"event":"test"}', "source=claude")]
     assert events == []
