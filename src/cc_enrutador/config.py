@@ -311,9 +311,7 @@ class AppConfig(StrictModel):
     @model_validator(mode="after")
     def classifier_timeout_matches_global_timeout(self) -> AppConfig:
         if self.classifier.timeout_ms != self.timeouts.classifier_ms:
-            raise ValueError(
-                "classifier.timeout_ms and timeouts.classifier_ms must match in V1"
-            )
+            raise ValueError("classifier.timeout_ms and timeouts.classifier_ms must match in V1")
         return self
 
 
