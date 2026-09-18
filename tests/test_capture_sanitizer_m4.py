@@ -42,5 +42,5 @@ def test_capture_sanitizer_redacts_credentials_ids_and_home_paths() -> None:
     assert "session-123" not in serialized
     assert "another-secret" not in serialized
     assert "/home/andrei/" not in serialized
-    assert r"C:\Users\Andrei\" not in serialized
+    assert "Andrei" not in serialized
     assert "safe-request-id" in serialized
