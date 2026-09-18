@@ -24,7 +24,7 @@ M0 provides the project foundation:
 - synthetic Anthropic request fixtures
 - third-party attribution
 
-M1 adds task extraction, heuristic/AI/hybrid classification, classifier caching, and the `/debug/classify` development endpoint. Provider execution and the live routing proxy remain M2 work; live doctor probes remain M3.
+M1 adds task extraction, heuristic/AI/hybrid classification, classifier caching, and the `/debug/classify` development endpoint. M2 adds the runnable `/v1/messages` proxy, LiteLLM simple/medium execution, direct Anthropic subscription passthrough, credential isolation, Anthropic-compatible response normalization, streaming/tool support, and `/health`. Operational escalation, telemetry, and full doctor diagnostics remain M3.
 
 ## Development setup
 
@@ -71,9 +71,7 @@ uv run cc-enrutador serve --help
 uv run cc-enrutador doctor --help
 ```
 
-The `serve` and full `doctor` behaviors are deliberately placeholders during M0.
-Their stable command surface exists so later milestones can implement behavior without
-changing the user-facing CLI.
+`serve` starts the FastAPI/Uvicorn routing proxy using the configured host and port. Full `doctor` diagnostics are implemented in M3.
 
 ## Configuration
 
