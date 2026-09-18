@@ -26,3 +26,11 @@ class HeuristicDecision(BaseModel):
     reason: str
     confidence: float = Field(ge=0.0, le=1.0)
     explicit_gate: bool
+
+
+
+class RouteDecision(BaseModel):
+    tier: ComplexityTier
+    provider: str
+    model: str
+    fallback_chain: list[ComplexityTier] = Field(default_factory=list)
