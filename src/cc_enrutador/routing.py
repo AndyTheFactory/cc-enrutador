@@ -7,9 +7,7 @@ from cc_enrutador.models import ClassificationResult, ComplexityTier, RouteDecis
 def route_request(classification: ClassificationResult, config: AppConfig) -> RouteDecision:
     tier = classification.tier
     target = provider_for_tier(tier, config)
-    fallback_chain = [
-        ComplexityTier(item) for item in config.escalation.chain[tier.value]
-    ]
+    fallback_chain = [ComplexityTier(item) for item in config.escalation.chain[tier.value]]
     return RouteDecision(
         tier=tier,
         provider=target.provider,
