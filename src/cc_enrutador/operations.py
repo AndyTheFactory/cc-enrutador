@@ -41,12 +41,18 @@ def escalation_tiers(initial: ComplexityTier, config: AppConfig) -> list[Complex
     current = initial
     for raw_target in config.escalation.chain[initial.value]:
         target = ComplexityTier(raw_target)
-        if current is ComplexityTier.SIMPLE and target is ComplexityTier.MEDIUM:
-            if not config.escalation.provider_failure.simple_to_medium:
-                break
-        if current is ComplexityTier.MEDIUM and target is ComplexityTier.COMPLEX:
-            if not config.escalation.provider_failure.medium_to_complex:
-                break
+        if (
+            current is ComplexityTier.SIMPLE
+            and target is ComplexityTier.MEDIUM
+            and not config.escalation.provider_failure.simple_to_medium
+        ):
+            break
+        if (
+            current is ComplexityTier.MEDIUM
+            and target is ComplexityTier.COMPLEX
+            and not config.escalation.provider_failure.medium_to_complex
+        ):
+            break
         tiers.append(target)
         current = target
     return tiers
@@ -85,7 +91,7 @@ class ExecutionService:
                     provider.complete(body, headers),
                     timeout=self.timeouts.request_seconds(tier),
                 )
-            except (ProviderError, TimeoutError, asyncio.TimeoutError) as exc:
+            except (ProviderError, TimeoutError) as exc:
                 last_error = exc
                 continue
             self.task_state.promote(task_id, tier)
@@ -131,7 +137,7 @@ class ExecutionService:
                     yielded = True
                     self.task_state.promote(task_id, tier)
                     yield chunk
-            except (ProviderError, TimeoutError, asyncio.TimeoutError) as exc:
+            except (ProviderError, TimeoutError) as exc:
                 last_error = exc
                 close = getattr(upstream, "aclose", None)
                 if close is not None:
