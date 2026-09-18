@@ -6,7 +6,6 @@ from typing import Any, cast
 
 from cc_enrutador.config import ProviderModelConfig
 from cc_enrutador.providers.base import ProviderError, ProviderRequestError
-from cc_enrutador.providers.headers import headers_for_non_anthropic
 from cc_enrutador.providers.normalization import (
     LiteLLMStreamNormalizer,
     anthropic_request_to_litellm,
@@ -78,10 +77,10 @@ class LiteLLMProvider:
     async def complete(
         self,
         body: Mapping[str, Any],
-        headers: Mapping[str, str],
+        _headers: Mapping[str, str],
     ) -> dict[str, Any]:
-        # Explicitly normalize/filter headers even though LiteLLM is invoked as a Python API.
-        headers_for_non_anthropic(headers)
+        # Inbound headers (including any Claude OAuth) are never forwarded to LiteLLM;
+        # credentials come only from self.config.api_key_env in _call().
         response = await self._call(stream=False, body=body)
         try:
             return litellm_response_to_anthropic(response, self.config.model)
@@ -91,9 +90,8 @@ class LiteLLMProvider:
     async def stream(
         self,
         body: Mapping[str, Any],
-        headers: Mapping[str, str],
+        _headers: Mapping[str, str],
     ) -> AsyncIterator[bytes]:
-        headers_for_non_anthropic(headers)
         stream = await self._call(stream=True, body=body)
         normalizer = LiteLLMStreamNormalizer(self.config.model)
         try:
