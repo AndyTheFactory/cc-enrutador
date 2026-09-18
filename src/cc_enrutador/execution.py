@@ -29,4 +29,3 @@ class ProviderRegistry:
         if target.provider == "anthropic_subscription":
             return AnthropicPassthroughProvider(target, client=self.anthropic_client)
         raise ValueError(f"unsupported execution provider: {target.provider}")
-
