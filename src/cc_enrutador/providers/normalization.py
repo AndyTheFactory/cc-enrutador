@@ -244,6 +244,7 @@ class LiteLLMStreamNormalizer:
         self.started = False
         self.text_started = False
         self.tool_blocks: dict[int, int] = {}
+        self.text_block_index: int | None = None
         self.next_block_index = 0
 
     def feed(self, chunk: Any) -> list[bytes]:
@@ -295,13 +296,13 @@ class LiteLLMStreamNormalizer:
                         },
                     )
                 )
-                self.tool_blocks[-1] = block_index
+                self.text_block_index = block_index
             events.append(
                 sse(
                     "content_block_delta",
                     {
                         "type": "content_block_delta",
-                        "index": self.tool_blocks[-1],
+                        "index": self.text_block_index,
                         "delta": {"type": "text_delta", "text": text},
                     },
                 )
@@ -350,7 +351,10 @@ class LiteLLMStreamNormalizer:
 
         finish_reason = first.get("finish_reason")
         if finish_reason is not None:
-            for block_index in sorted(set(self.tool_blocks.values())):
+            block_indices = set(self.tool_blocks.values())
+            if self.text_block_index is not None:
+                block_indices.add(self.text_block_index)
+            for block_index in sorted(block_indices):
                 events.append(
                     sse(
                         "content_block_stop",
