@@ -71,8 +71,9 @@ class ExecutionService:
         task_id: str,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        attempted_tiers: list[ComplexityTier] | None = None,
     ) -> ExecutionResult:
-        attempted: list[ComplexityTier] = []
+        attempted = attempted_tiers if attempted_tiers is not None else []
         last_error: BaseException | None = None
 
         for tier in escalation_tiers(initial_tier, self.config):
