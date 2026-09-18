@@ -17,6 +17,7 @@ from cc_enrutador.operations import ExecutionService, route_for_tier
 from cc_enrutador.providers.base import ProviderError
 from cc_enrutador.state import TaskStateStore, task_identity
 from cc_enrutador.streaming import forward_stream
+from cc_enrutador.task_extraction import is_harm_monitor_request
 from cc_enrutador.telemetry import RouterTelemetryEvent, TelemetryRecorder
 
 
@@ -48,6 +49,10 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.api_route("/api/hello", methods=["GET", "HEAD"])
+    async def hello() -> dict[str, str]:
+        return {"status": "ok"}
+
     @app.post("/debug/classify", response_model=ClassificationResult)
     async def debug_classify(request: ClassifyRequest) -> ClassificationResult:
         if not config.debug.classification_endpoint:
@@ -59,6 +64,24 @@ def create_app(
         started = time.perf_counter()
         body = request_body.model_dump(exclude_none=True)
         headers = dict(request.headers)
+
+        if is_harm_monitor_request(body):
+            try:
+                status, response_headers, content = await provider_registry.anthropic().raw_request(
+                    request.method,
+                    request.url.path,
+                    headers,
+                    await request.body(),
+                    request.url.query,
+                )
+            except ProviderError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            return Response(
+                content=content,
+                status_code=status,
+                headers=response_headers,
+            )
+
         request_id = headers.get("x-request-id") or uuid.uuid4().hex
         task_id = task_identity(body, headers)
 

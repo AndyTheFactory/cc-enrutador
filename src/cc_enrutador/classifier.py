@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import re
 import time
 from collections import OrderedDict
@@ -11,6 +12,7 @@ from typing import Any, cast
 
 from cc_enrutador.config import AppConfig, ClassifierConfig
 from cc_enrutador.models import ClassificationResult, ComplexityTier, HeuristicDecision
+from cc_enrutador.providers.litellm_runtime import load_litellm
 from cc_enrutador.task_extraction import (
     has_images,
     is_agentic,
@@ -21,6 +23,8 @@ from cc_enrutador.task_extraction import (
     tool_count,
     user_message_count,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 # Adapted in behavior from serhiileniv/claude-router (MIT).
 _TRANSFORM_RE = re.compile(
@@ -221,7 +225,7 @@ class ClassificationCache:
 
 
 async def litellm_completion(prompt: str, config: ClassifierConfig) -> str:
-    import litellm
+    litellm = load_litellm()
 
     kwargs: dict[str, Any] = {
         "model": config.model.model,
@@ -240,9 +244,6 @@ async def litellm_completion(prompt: str, config: ClassifierConfig) -> str:
         if api_key:
             kwargs["api_key"] = api_key
 
-    # ClassifierService.classify() already wraps every ai_completion call (this one
-    # included) in asyncio.wait_for(timeout_ms); litellm's own "timeout" kwarg above
-    # covers the request itself. A second asyncio.wait_for here would be redundant.
     response = await litellm.acompletion(**kwargs)
     response_any = cast(Any, response)
     content = response_any.choices[0].message.content
@@ -255,10 +256,11 @@ class ClassifierService:
     def __init__(
         self,
         app_config: AppConfig,
-        ai_completion: AICompletion = litellm_completion,
+        ai_completion: AICompletion | None = None,
     ) -> None:
         self.config = app_config.classifier
-        self.ai_completion = ai_completion
+        self.ai_completion = ai_completion if ai_completion is not None else litellm_completion
+        self._uses_provider_timeout = ai_completion is None
         self.cache = ClassificationCache(self.config.cache_size)
 
     async def classify(self, request: Mapping[str, Any]) -> ClassificationResult:
@@ -285,14 +287,23 @@ class ClassifierService:
 
         try:
             prompt = render_classifier_prompt(request, self.config)
-            raw = await asyncio.wait_for(
-                self.ai_completion(prompt, self.config),
-                timeout=self.config.timeout_ms / 1000,
-            )
+            completion = self.ai_completion(prompt, self.config)
+            if self._uses_provider_timeout:
+                raw = await completion
+            else:
+                raw = await asyncio.wait_for(
+                    completion,
+                    timeout=self.config.timeout_ms / 1000,
+                )
             tier = parse_classifier_output(raw, self.config)
-        except Exception:
+        except Exception as exc:
             # Classifier/provider failures must never block the routed user request.
             # asyncio.CancelledError is a BaseException and still propagates correctly.
+            _LOGGER.warning(
+                "AI classifier failed with %s; using heuristic fallback tier %s",
+                type(exc).__name__,
+                heuristic.tier.value,
+            )
             return self._heuristic_result(heuristic, started, reason_prefix="ai-fallback:")
 
         self.cache.put(cache_key, tier)

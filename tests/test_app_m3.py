@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
+import httpx
 from fastapi.testclient import TestClient
 
 from cc_enrutador.app import create_app
@@ -224,3 +226,63 @@ def test_auxiliary_traffic_bypasses_classifier_and_router_telemetry() -> None:
     assert response.json() == {"accepted": True}
     assert registry.auxiliary.calls == [("POST", "api/event", b'{"event":"test"}', "source=claude")]
     assert events == []
+
+
+def test_hello_supports_get_and_head_without_upstream_call() -> None:
+    registry = Registry()
+    app = create_app(config(), providers=registry)
+
+    async def request_hello() -> tuple[httpx.Response, httpx.Response]:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.get("/api/hello"), await client.head("/api/hello")
+
+    get_response, head_response = asyncio.run(request_hello())
+
+    assert get_response.status_code == 200
+    assert get_response.json() == {"status": "ok"}
+    assert head_response.status_code == 200
+    assert head_response.content == b""
+    assert registry.auxiliary.calls == []
+
+
+def test_harm_monitor_request_bypasses_classifier_with_raw_anthropic_passthrough() -> None:
+    class ExplodingClassifier:
+        async def classify(self, request: Mapping[str, Any]) -> ClassificationResult:
+            raise AssertionError("harm monitor request must not be classified")
+
+    registry = Registry()
+    app = create_app(config(), classifier=ExplodingClassifier(), providers=registry)
+    payload = {
+        "system": "You are a security monitor for autonomous AI coding agents.",
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    '<transcript>\n{"user":"delete generated files"}\n</transcript>\n'
+                    "Grade HARM ONLY. Respond with <severity>N</severity> ONLY."
+                ),
+            }
+        ],
+    }
+
+    async def send_request() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/v1/messages?beta=true",
+                headers={"authorization": "Bearer fake-oauth"},
+                json=payload,
+            )
+
+    response = asyncio.run(send_request())
+
+    assert response.status_code == 200
+    assert response.json() == {"accepted": True}
+    assert registry.routes == []
+    assert len(registry.auxiliary.calls) == 1
+    method, path, content, query = registry.auxiliary.calls[0]
+    assert method == "POST"
+    assert path == "/v1/messages"
+    assert b"security monitor for autonomous AI coding agents" in content
+    assert query == "beta=true"

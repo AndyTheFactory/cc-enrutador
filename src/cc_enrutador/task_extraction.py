@@ -93,6 +93,19 @@ def system_text(request: Mapping[str, Any]) -> str:
     return "\n".join(parts).strip()
 
 
+def is_harm_monitor_request(request: Mapping[str, Any]) -> bool:
+    """Identify Claude Code's transcript-based autonomous-agent harm check."""
+    system = system_text(request).lower()
+    task = latest_user_text(request).lower()
+    return (
+        "security monitor for autonomous ai coding agents" in system
+        and task.lstrip().startswith("<transcript>")
+        and "</transcript>" in task
+        and "<severity>n</severity>" in task
+        and "grade harm only" in task
+    )
+
+
 def message_count(request: Mapping[str, Any]) -> int:
     messages = request.get("messages")
     return len(messages) if isinstance(messages, list) else 0

@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from cc_enrutador.config import ProviderModelConfig
 from cc_enrutador.providers.base import ProviderError, ProviderRequestError
+from cc_enrutador.providers.litellm_runtime import load_litellm
 from cc_enrutador.providers.normalization import (
     LiteLLMStreamNormalizer,
     anthropic_request_to_litellm,
@@ -50,8 +51,7 @@ class LiteLLMProvider:
 
     async def _call(self, *, stream: bool, body: Mapping[str, Any]) -> Any:
         if self._completion is None:
-            import litellm
-
+            litellm = load_litellm()
             completion = litellm.acompletion
         else:
             completion = self._completion

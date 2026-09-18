@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
+from cc_enrutador import classifier as classifier_module
 from cc_enrutador.classifier import ClassifierService
 from cc_enrutador.config import AppConfig, ClassifierConfig
 from cc_enrutador.models import ComplexityTier
@@ -94,15 +96,33 @@ def test_timeout_falls_back_to_heuristic() -> None:
     assert result.reason.startswith("ai-fallback:")
 
 
-def test_malformed_ai_output_falls_back() -> None:
+def test_builtin_completion_owns_its_timeout(monkeypatch: Any) -> None:
+    async def fake_builtin(prompt: str, config: ClassifierConfig) -> str:
+        await asyncio.sleep(0.15)
+        return "1"
+
+    monkeypatch.setattr(classifier_module, "litellm_completion", fake_builtin)
+    service = ClassifierService(app_config())
+
+    result = run(service.classify(request("Fix the parser bug.")))
+
+    assert result.tier == ComplexityTier.SIMPLE
+    assert result.method == "hybrid"
+
+
+def test_malformed_ai_output_logs_warning_and_falls_back(caplog: Any) -> None:
     async def fake(prompt: str, config: ClassifierConfig) -> str:
         return "definitely-medium"
 
     service = ClassifierService(app_config(), ai_completion=fake)
-    result = run(service.classify(request("Fix the parser bug.")))
+    with caplog.at_level(logging.WARNING, logger="cc_enrutador.classifier"):
+        result = run(service.classify(request("Fix the parser bug.")))
 
     assert result.tier == ComplexityTier.MEDIUM
     assert result.method == "heuristic"
+    assert caplog.messages == [
+        "AI classifier failed with ValueError; using heuristic fallback tier medium"
+    ]
 
 
 def test_ai_result_is_cached() -> None:
