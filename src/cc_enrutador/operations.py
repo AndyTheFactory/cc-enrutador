@@ -106,10 +106,13 @@ class ExecutionService:
         task_id: str,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        attempted_tiers: list[ComplexityTier] | None = None,
     ) -> AsyncIterator[bytes]:
         last_error: BaseException | None = None
+        attempts = attempted_tiers if attempted_tiers is not None else []
 
         for tier in escalation_tiers(initial_tier, self.config):
+            attempts.append(tier)
             route = route_for_tier(tier, self.config)
             provider = self.providers.get(route)
             upstream = provider.stream(body, headers)
