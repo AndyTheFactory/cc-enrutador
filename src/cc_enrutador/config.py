@@ -4,7 +4,7 @@ import os
 import re
 import string
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -235,7 +235,14 @@ class TimeoutsConfig(StrictModel):
 class TelemetryConfig(StrictModel):
     enabled: bool = True
     persist_prompts: bool = False
-    preserve_claude_default: bool = True
+    preserve_claude_default: Literal[True] = True
+
+    @field_validator("persist_prompts")
+    @classmethod
+    def reject_prompt_persistence_in_v1(cls, value: bool) -> bool:
+        if value:
+            raise ValueError("telemetry.persist_prompts=true is not supported in V1")
+        return value
 
 
 class DoctorConfig(StrictModel):
@@ -249,12 +256,48 @@ class DebugConfig(StrictModel):
     classification_endpoint: bool = True
     capture_bodies: bool = False
 
+    @field_validator("capture_bodies")
+    @classmethod
+    def reject_body_capture_in_v1(cls, value: bool) -> bool:
+        if value:
+            raise ValueError("debug.capture_bodies=true is not supported in V1")
+        return value
+
 
 class LoggingConfig(StrictModel):
     level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"] = "INFO"
 
 
 class AppConfig(StrictModel):
+    @model_validator(mode="before")
+    @classmethod
+    def synchronize_classifier_timeout(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        data = dict(value)
+        classifier_raw = data.get("classifier")
+        timeouts_raw = data.get("timeouts")
+        classifier = dict(classifier_raw) if isinstance(classifier_raw, dict) else {}
+        timeouts = dict(timeouts_raw) if isinstance(timeouts_raw, dict) else {}
+
+        has_classifier = "timeout_ms" in classifier
+        has_global = "classifier_ms" in timeouts
+
+        if has_classifier and has_global:
+            if classifier["timeout_ms"] != timeouts["classifier_ms"]:
+                raise ValueError(
+                    "classifier.timeout_ms and timeouts.classifier_ms must match in V1"
+                )
+        elif has_classifier:
+            timeouts["classifier_ms"] = classifier["timeout_ms"]
+            data["timeouts"] = timeouts
+        elif has_global and classifier:
+            classifier["timeout_ms"] = timeouts["classifier_ms"]
+            data["classifier"] = classifier
+
+        return data
+
     server: ServerConfig = Field(default_factory=ServerConfig)
     classifier: ClassifierConfig
     models: ModelRoutesConfig
@@ -264,6 +307,12 @@ class AppConfig(StrictModel):
     doctor: DoctorConfig = Field(default_factory=DoctorConfig)
     debug: DebugConfig = Field(default_factory=DebugConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+
+    @model_validator(mode="after")
+    def classifier_timeout_matches_global_timeout(self) -> AppConfig:
+        if self.classifier.timeout_ms != self.timeouts.classifier_ms:
+            raise ValueError("classifier.timeout_ms and timeouts.classifier_ms must match in V1")
+        return self
 
 
 def _expand_env(value: object) -> object:

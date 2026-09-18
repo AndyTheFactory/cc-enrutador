@@ -24,6 +24,7 @@ class RouterTelemetryEvent(BaseModel):
     reason: str
     confidence: float
     classifier_latency_ms: float
+    model_latency_ms: float | None = None
     target: str
     fallback_path: list[ComplexityTier] = Field(default_factory=list)
     total_latency_ms: float

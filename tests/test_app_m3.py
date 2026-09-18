@@ -198,6 +198,8 @@ def test_provider_fallback_is_recorded_in_telemetry() -> None:
     assert events[0].request_id == "request-123"
     assert events[0].tier == ComplexityTier.MEDIUM
     assert events[0].fallback_path == [ComplexityTier.MEDIUM]
+    assert events[0].model_latency_ms is not None
+    assert events[0].model_latency_ms >= 0
 
 
 def test_auxiliary_traffic_bypasses_classifier_and_router_telemetry() -> None:

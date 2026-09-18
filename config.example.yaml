@@ -1,3 +1,7 @@
+# Reference configuration for cc-enrutador V1.
+# Model identifiers below are examples, not mandatory bundled defaults.
+# Replace them with LiteLLM-compatible models/endpoints appropriate to your environment.
+
 server:
   host: 127.0.0.1
   port: 8787

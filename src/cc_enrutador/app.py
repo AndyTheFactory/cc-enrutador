@@ -81,6 +81,7 @@ def create_app(
         attempts: list[ComplexityTier] = []
 
         if body.get("stream") is True:
+            execution_started = time.perf_counter()
             upstream_stream = execution.stream(
                 effective_tier,
                 task_id,
@@ -110,6 +111,7 @@ def create_app(
                             reason=classification.reason,
                             confidence=classification.confidence,
                             classifier_latency_ms=classification.latency_ms,
+                            model_latency_ms=(time.perf_counter() - execution_started) * 1000,
                             target=final_route.model,
                             fallback_path=attempts[1:],
                             total_latency_ms=(time.perf_counter() - started) * 1000,
@@ -123,6 +125,7 @@ def create_app(
                 headers={"cache-control": "no-cache"},
             )
 
+        execution_started = time.perf_counter()
         try:
             result = await execution.complete(
                 effective_tier,
@@ -142,6 +145,7 @@ def create_app(
                     reason=classification.reason,
                     confidence=classification.confidence,
                     classifier_latency_ms=classification.latency_ms,
+                    model_latency_ms=(time.perf_counter() - execution_started) * 1000,
                     target=initial_route.model,
                     fallback_path=attempts[1:],
                     total_latency_ms=(time.perf_counter() - started) * 1000,
@@ -160,6 +164,7 @@ def create_app(
                 reason=classification.reason,
                 confidence=classification.confidence,
                 classifier_latency_ms=classification.latency_ms,
+                model_latency_ms=result.model_latency_ms,
                 target=result.final_route.model,
                 fallback_path=result.attempted_tiers[1:],
                 total_latency_ms=(time.perf_counter() - started) * 1000,

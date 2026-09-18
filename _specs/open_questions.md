@@ -1,51 +1,40 @@
 # cc-enrutador — Open Questions
 
-Only genuinely unresolved decisions remain here. Resolved architecture and V1 behavior belong in the functional, technical, and configuration specifications.
+There are no unresolved V1 release-blocking architecture questions.
 
-## 1. Default simple-tier model
+## Resolved for V1
 
-Which concrete model should be used in the reference configuration for the `simple` tier?
+### Simple-tier model
 
-Requirements:
+V1 does **not** define a mandatory default simple-tier model.
 
-- fast local inference
-- reliable tool/function calling through LiteLLM
-- sufficient quality for short mechanical coding tasks
-- modest memory footprint
+The model in `config.example.yaml` is a reference example only. Operators must choose a
+LiteLLM-compatible model that meets their latency, quality, memory, and tool-calling needs.
+The router remains model-agnostic.
 
-The router itself must remain model-agnostic.
+### Classifier model
 
-## 2. Default classifier model
+V1 does **not** define a mandatory default AI-classifier model.
 
-Which concrete small model should be used in the reference configuration for hybrid classification?
+The model in `config.example.yaml` is a reference example only. The classifier model is
+independently configurable and may share infrastructure with the simple execution tier, but
+the implementation does not assume that it does.
 
-Requirements:
+### Medium-tier deployment
 
-- very low latency
-- reliable `simple / medium / complex` classification
-- deterministic short output
-- preferably runnable on the same local inference stack as the simple-tier model
+V1 treats the medium tier as a generic LiteLLM target.
 
-The classifier model remains independently configurable from the simple-tier execution model.
+The reference GPT-OSS-120B identifier and `GPT_OSS_BASE_URL` demonstrate an
+OpenAI-compatible remote/self-hosted deployment, but the router does not prescribe whether
+that endpoint runs locally, on vLLM, or at a third-party provider.
 
-## 3. Medium-tier GPT-OSS-120B deployment
+## Deferred beyond V1
 
-Where will the initial GPT-OSS-120B backend run?
-
-Possible deployments:
-
-- local/self-hosted vLLM
-- remote OpenAI-compatible endpoint
-- third-party inference provider
-
-This only affects the reference/development configuration. The router treats the medium tier as a generic LiteLLM target.
-
-## Deferred, not open
-
-The following are intentionally deferred rather than unresolved:
+The following are intentionally deferred:
 
 - semantic escalation based on model quality, failed tests, repeated edits, or uncertainty
 - SQLite/dashboard telemetry
 - hot configuration reload
 - learned/adaptive routing
 - broader provider capability benchmarking
+- automatic provider/model recommendation

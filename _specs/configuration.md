@@ -276,7 +276,10 @@ V1 configuration must reserve the policy shape, but semantic escalation may rema
 
 Within an ongoing task, automatic escalation may increase the minimum level. The router should not automatically demote the same task again until a fresh user task is detected when `never_demote_within_task: true`.
 
-This setting depends on session/task tracking and may initially be inactive if V1 does not yet implement task stickiness.
+V1 implements this policy using a bounded in-process task-state store keyed by the latest
+semantic user instruction (plus explicit session metadata when available). Tool-result-only
+continuations retain the same task identity; a fresh semantic user instruction starts a new
+task identity.
 
 ## 8. Timeouts
 
@@ -410,3 +413,28 @@ Configuration support is complete when:
 10. no classifier code contains provider/model names;
 11. doctor settings are configurable and `--live` can override the live-probe default;
 12. disabling router telemetry does not disable Claude Code's default telemetry.
+
+
+## 16. V1 sensitive-capture invariants
+
+V1 does not implement prompt/response persistence inside the router.
+
+The following values are therefore rejected at configuration validation time:
+
+```yaml
+telemetry:
+  persist_prompts: true
+
+debug:
+  capture_bodies: true
+
+telemetry:
+  preserve_claude_default: false
+```
+
+Compatibility capture is an external validation activity documented in
+`docs/v1-validation.md`; captured traffic must be sanitized before being committed.
+
+The duplicated classifier timeout fields are retained for V1 compatibility. If only one of
+`classifier.timeout_ms` or `timeouts.classifier_ms` is supplied, the other is synchronized
+to the same value. If both are supplied, they must match.

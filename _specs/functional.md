@@ -247,7 +247,9 @@ Every inference request should produce a local routing record containing at leas
 
 Prompts and model responses must **not** be persisted by default.
 
-Debug capture of request/response bodies must be an explicit opt-in development feature and should warn that source code and credentials may be sensitive.
+The configuration reserves prompt/body-capture fields for future development, but V1 rejects
+enabling them. Real compatibility captures are performed outside the router and must be
+sanitized before they are committed.
 
 ## 10. Configuration
 

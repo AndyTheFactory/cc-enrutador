@@ -144,11 +144,16 @@ class Doctor:
             checks.append(
                 DoctorCheck(
                     name=f"secret:{name}",
-                    status=CheckStatus.PASS if present else CheckStatus.FAIL,
+                    status=CheckStatus.PASS if present else CheckStatus.WARN,
+                    required=False,
                     message=(
                         f"environment variable {model.api_key_env} is present"
                         if present
-                        else f"environment variable {model.api_key_env} is missing or empty"
+                        else (
+                            f"environment variable {model.api_key_env} is missing or empty; "
+                            "this is valid only if the configured provider endpoint "
+                            "does not require it"
+                        )
                     ),
                     metadata={"env": model.api_key_env},
                 )
