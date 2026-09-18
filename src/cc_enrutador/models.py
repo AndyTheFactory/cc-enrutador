@@ -27,8 +27,6 @@ class HeuristicDecision(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     explicit_gate: bool
 
-
-
 class RouteDecision(BaseModel):
     tier: ComplexityTier
     provider: str
