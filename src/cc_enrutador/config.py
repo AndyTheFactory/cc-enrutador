@@ -265,6 +265,14 @@ class AppConfig(StrictModel):
     debug: DebugConfig = Field(default_factory=DebugConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
+    @model_validator(mode="after")
+    def classifier_timeout_matches_global_timeout(self) -> AppConfig:
+        if self.classifier.timeout_ms != self.timeouts.classifier_ms:
+            raise ValueError(
+                "classifier.timeout_ms and timeouts.classifier_ms must match in V1"
+            )
+        return self
+
 
 def _expand_env(value: object) -> object:
     if isinstance(value, dict):
