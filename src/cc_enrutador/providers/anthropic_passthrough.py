@@ -49,6 +49,40 @@ class AnthropicPassthroughProvider:
             if owns_client:
                 await client.aclose()
 
+    async def raw_request(
+        self,
+        method: str,
+        path: str,
+        headers: Mapping[str, str],
+        content: bytes,
+        query: str = "",
+    ) -> tuple[int, dict[str, str], bytes]:
+        assert self.config.api_base is not None
+        url = self.config.api_base.rstrip("/") + "/" + path.lstrip("/")
+        if query:
+            url = f"{url}?{query}"
+
+        client = self._client or httpx.AsyncClient()
+        owns_client = self._client is None
+        try:
+            response = await client.request(
+                method,
+                url,
+                headers=headers_for_anthropic(headers),
+                content=content,
+            )
+            response_headers = {
+                key: value
+                for key, value in response.headers.items()
+                if key.lower() not in {"content-length", "transfer-encoding", "connection"}
+            }
+            return response.status_code, response_headers, response.content
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"Anthropic auxiliary passthrough failed: {exc}") from exc
+        finally:
+            if owns_client:
+                await client.aclose()
+
     async def stream(
         self,
         body: Mapping[str, Any],
