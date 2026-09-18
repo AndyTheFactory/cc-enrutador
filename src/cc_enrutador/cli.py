@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from cc_enrutador import __version__
 from cc_enrutador.app import create_app
-from cc_enrutador.config import ConfigLoadError, load_config
+from cc_enrutador.config import AppConfig, ConfigLoadError, load_config
 from cc_enrutador.doctor import Doctor, format_report
 from cc_enrutador.logging import configure_logging
 
@@ -32,15 +32,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_or_report(config_path: str | None) -> int:
+def _load_or_report(config_path: str | None, *, as_json: bool = False) -> AppConfig | None:
     try:
         config = load_config(config_path)
     except ConfigLoadError as exc:
-        print(f"configuration error: {exc}")
-        return 2
+        if as_json:
+            print(json.dumps({"error": "configuration", "message": str(exc)}))
+        else:
+            print(f"configuration error: {exc}")
+        return None
 
     configure_logging(config.logging.level)
-    return 0
+    return config
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -52,12 +55,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "serve":
-        try:
-            config = load_config(args.config)
-        except ConfigLoadError as exc:
-            print(f"configuration error: {exc}")
+        config = _load_or_report(args.config)
+        if config is None:
             return 2
-        configure_logging(config.logging.level)
 
         import uvicorn
 
@@ -69,16 +69,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "doctor":
-        try:
-            config = load_config(args.config)
-        except ConfigLoadError as exc:
-            if args.json:
-                print(json.dumps({"error": "configuration", "message": str(exc)}))
-            else:
-                print(f"configuration error: {exc}")
+        config = _load_or_report(args.config, as_json=args.json)
+        if config is None:
             return 2
 
-        configure_logging(config.logging.level)
         report = asyncio.run(Doctor(config).run(live=args.live))
         if args.json:
             payload = report.model_dump(mode="json")
