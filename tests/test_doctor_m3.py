@@ -65,9 +65,7 @@ class LiveProvider:
         if body.get("tools"):
             return {
                 "type": "message",
-                "content": [
-                    {"type": "tool_use", "id": "toolu_1", "name": "ping", "input": {}}
-                ],
+                "content": [{"type": "tool_use", "id": "toolu_1", "name": "ping", "input": {}}],
             }
         return {"type": "message", "content": [{"type": "text", "text": "OK"}]}
 
