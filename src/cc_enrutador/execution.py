@@ -22,6 +22,12 @@ class ProviderRegistry:
         self.litellm_completion = litellm_completion
         self.anthropic_client = anthropic_client
 
+    def anthropic(self) -> AnthropicPassthroughProvider:
+        return AnthropicPassthroughProvider(
+            self.config.models.complex,
+            client=self.anthropic_client,
+        )
+
     def get(self, route: RouteDecision) -> ExecutionProvider:
         target = provider_for_tier(route.tier, self.config)
         if target.provider == "litellm":
