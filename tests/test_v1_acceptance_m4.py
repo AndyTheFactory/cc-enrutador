@@ -88,12 +88,20 @@ class FakeRegistry:
 def test_reference_config_loads_with_documented_environment(
     monkeypatch: Any,
 ) -> None:
+    monkeypatch.setenv("SIMPLE_MODEL", "ollama/qwen3-coder")
+    monkeypatch.setenv("SIMPLE_BASE_URL", "http://127.0.0.1:8000/v1")
+    monkeypatch.setenv("MEDIUM_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setenv("MEDIUM_BASE_URL", "http://127.0.0.1:8000/v1")
+    monkeypatch.delenv("SIMPLE_API_KEY", raising=False)
+    monkeypatch.delenv("MEDIUM_API_KEY", raising=False)
+
     config = load_config(Path("config.example.yaml"))
 
     assert config.classifier.mode == "hybrid"
     assert config.models.simple.provider == "litellm"
+    assert config.models.simple.api_key_env == "SIMPLE_API_KEY"
     assert config.models.medium.provider == "litellm"
+    assert config.models.medium.api_key_env == "MEDIUM_API_KEY"
     assert config.models.complex.provider == "anthropic_subscription"
 
 
