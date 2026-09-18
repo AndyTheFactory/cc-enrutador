@@ -75,9 +75,7 @@ def heuristic_classify(
         # through to the simple gate only when explicitly opted in, and floor at
         # MEDIUM otherwise instead of ever reaching the non-agentic "abstain" path
         # below, which would incorrectly let hybrid mode invoke the AI classifier.
-        if config.heuristic.allow_simple_in_agentic and _simple_gate(
-            request, task, system, config
-        ):
+        if config.heuristic.allow_simple_in_agentic and _simple_gate(request, task, system, config):
             return HeuristicDecision(
                 tier=ComplexityTier.SIMPLE,
                 reason="simple:mechanical-transform",

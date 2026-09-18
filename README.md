@@ -71,21 +71,46 @@ uv sync
 cp config.example.yaml config.yaml
 ```
 
-Set the medium example endpoint:
+The reference configuration uses environment interpolation for the simple and medium model
+names and base URLs. Set those four required variables before loading the config. Provider
+API keys are optional and are read indirectly from `SIMPLE_API_KEY` and
+`MEDIUM_API_KEY` only when those endpoints require authentication.
+
+Bash / zsh:
 
 ```bash
+export SIMPLE_MODEL=ollama/qwen3-coder
+export SIMPLE_BASE_URL=http://127.0.0.1:8000/v1
+
+export MEDIUM_MODEL=openai/gpt-oss-120b
 export MEDIUM_BASE_URL=http://127.0.0.1:8000/v1
+
+# Only if the endpoints require authentication:
+# export SIMPLE_API_KEY=...
+# export MEDIUM_API_KEY=...
 ```
 
 PowerShell:
 
 ```powershell
+$env:SIMPLE_MODEL = "ollama/qwen3-coder"
+$env:SIMPLE_BASE_URL = "http://127.0.0.1:8000/v1"
+
+$env:MEDIUM_MODEL = "openai/gpt-oss-120b"
 $env:MEDIUM_BASE_URL = "http://127.0.0.1:8000/v1"
+
+# Only if the endpoints require authentication:
+# $env:SIMPLE_API_KEY = "..."
+# $env:MEDIUM_API_KEY = "..."
 ```
 
-If the endpoint requires a key, set the environment variable referenced by
-`api_key_env`. If it does not, the variable may remain empty; `doctor` reports a warning,
-not a hard failure.
+If an endpoint requires authentication, set the environment variable named by
+`api_key_env`. The reference config already points to `SIMPLE_API_KEY` and
+`MEDIUM_API_KEY`; no key variable is required for an unauthenticated endpoint.
+
+`.env.example` documents the same variables, but cc-enrutador does **not** automatically
+load `.env` files. Export the variables in your shell, use your shell's env-file mechanism,
+or replace the `${...}` references in `config.yaml` with fixed non-secret values.
 
 Validate configuration:
 
@@ -245,10 +270,12 @@ CI runs these checks on Linux and Windows and also smoke-tests the CLI.
 
 ## Troubleshooting
 
-### Configuration fails because `MEDIUM_BASE_URL` is missing
+### Configuration fails because an environment variable is missing
 
-The reference YAML uses environment interpolation for the medium example endpoint. Export
-the variable or replace the reference with your own endpoint.
+The reference YAML requires `SIMPLE_MODEL`, `SIMPLE_BASE_URL`, `MEDIUM_MODEL`, and
+`MEDIUM_BASE_URL`. Export those variables before loading the configuration, or replace
+the corresponding `${...}` references in `config.yaml`. `SIMPLE_API_KEY` and
+`MEDIUM_API_KEY` are only needed when the respective provider requires authentication.
 
 ### Doctor warns about a missing provider API key
 
