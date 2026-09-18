@@ -12,6 +12,7 @@ from cc_enrutador.execution import ProviderRegistry
 from cc_enrutador.models import ClassificationResult
 from cc_enrutador.providers.base import ProviderError
 from cc_enrutador.routing import route_request
+from cc_enrutador.streaming import forward_stream
 
 
 class ClassifyRequest(BaseModel):
@@ -54,19 +55,8 @@ def create_app(
         if body.get("stream") is True:
             upstream_stream = provider.stream(body, headers)
 
-            async def stream_response() -> Any:
-                try:
-                    async for chunk in upstream_stream:
-                        if await request.is_disconnected():
-                            break
-                        yield chunk
-                finally:
-                    close = getattr(upstream_stream, "aclose", None)
-                    if close is not None:
-                        await close()
-
             return StreamingResponse(
-                stream_response(),
+                forward_stream(upstream_stream, request.is_disconnected),
                 media_type="text/event-stream",
                 headers={"cache-control": "no-cache"},
             )
