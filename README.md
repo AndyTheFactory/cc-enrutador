@@ -203,8 +203,11 @@ Router telemetry is local routing metadata and is separate from Claude Code tele
 It records fields such as task/request ID, tier, reason, confidence, target, classifier
 latency, total latency, status, and fallback path.
 
-It does not persist prompts, responses, tool-result bodies, or authorization headers by
-default.
+It does not persist prompts, responses, tool-result bodies, or authorization headers.
+
+V1 deliberately rejects `telemetry.persist_prompts: true` and
+`debug.capture_bodies: true`; sensitive compatibility capture is an external, sanitized
+validation workflow rather than an in-router feature.
 
 Setting:
 
