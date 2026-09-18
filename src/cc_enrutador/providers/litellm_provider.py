@@ -9,7 +9,7 @@ from cc_enrutador.providers.base import ProviderError
 from cc_enrutador.providers.headers import headers_for_non_anthropic
 from cc_enrutador.providers.normalization import (
     anthropic_request_to_litellm,
-    litellm_chunk_to_anthropic_sse,
+    LiteLLMStreamNormalizer,
     litellm_response_to_anthropic,
 )
 
@@ -66,15 +66,10 @@ class LiteLLMProvider:
     ) -> AsyncIterator[bytes]:
         headers_for_non_anthropic(headers)
         stream = await self._call(stream=True, body=body)
-        yielded_start = False
+        normalizer = LiteLLMStreamNormalizer(self.config.model)
         try:
             async for chunk in cast(Any, stream):
-                for event in litellm_chunk_to_anthropic_sse(
-                    chunk,
-                    model=self.config.model,
-                    include_start=not yielded_start,
-                ):
-                    yielded_start = True
+                for event in normalizer.feed(chunk):
                     yield event
         except Exception as exc:
             raise ProviderError(f"LiteLLM streaming failed: {exc}") from exc
