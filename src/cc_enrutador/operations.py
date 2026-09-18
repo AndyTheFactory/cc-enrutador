@@ -118,9 +118,14 @@ class ExecutionService:
         body: Mapping[str, Any],
         headers: Mapping[str, str],
         attempted_tiers: list[ComplexityTier] | None = None,
+        model_latency_ms: list[float] | None = None,
     ) -> AsyncIterator[bytes]:
+        """model_latency_ms, if given, is appended to with each upstream chunk's wait
+        time only — it excludes time spent on the consumer side (e.g. writing to a
+        slow client), so it stays comparable to complete()'s model_latency_ms."""
         last_error: BaseException | None = None
         attempts = attempted_tiers if attempted_tiers is not None else []
+        latency_sink = model_latency_ms if model_latency_ms is not None else []
 
         for tier in escalation_tiers(initial_tier, self.config):
             attempts.append(tier)
@@ -130,6 +135,7 @@ class ExecutionService:
             yielded = False
             try:
                 while True:
+                    chunk_started = time.perf_counter()
                     try:
                         chunk = await asyncio.wait_for(
                             anext(upstream),
@@ -138,6 +144,7 @@ class ExecutionService:
                     except StopAsyncIteration:
                         self.task_state.promote(task_id, tier)
                         return
+                    latency_sink.append((time.perf_counter() - chunk_started) * 1000)
                     yielded = True
                     self.task_state.promote(task_id, tier)
                     yield chunk

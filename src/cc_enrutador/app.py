@@ -81,13 +81,14 @@ def create_app(
         attempts: list[ComplexityTier] = []
 
         if body.get("stream") is True:
-            execution_started = time.perf_counter()
+            model_latencies: list[float] = []
             upstream_stream = execution.stream(
                 effective_tier,
                 task_id,
                 body,
                 headers,
                 attempted_tiers=attempts,
+                model_latency_ms=model_latencies,
             )
 
             async def observed_stream() -> AsyncIterator[bytes]:
@@ -111,7 +112,7 @@ def create_app(
                             reason=classification.reason,
                             confidence=classification.confidence,
                             classifier_latency_ms=classification.latency_ms,
-                            model_latency_ms=(time.perf_counter() - execution_started) * 1000,
+                            model_latency_ms=sum(model_latencies),
                             target=final_route.model,
                             fallback_path=attempts[1:],
                             total_latency_ms=(time.perf_counter() - started) * 1000,
