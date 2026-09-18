@@ -298,7 +298,9 @@ class Doctor:
                 anext(stream),
                 timeout=self.config.doctor.probe_timeout_ms / 1000,
             )
-            await stream.aclose()
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
             if not first:
                 raise ProviderError("empty streaming event")
         except Exception as exc:
