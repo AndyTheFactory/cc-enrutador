@@ -30,6 +30,38 @@ def test_configurable_prompt_receives_structural_fields() -> None:
     assert "tools=1" in prompt
 
 
+def test_prompt_uses_task_before_trailing_tool_result() -> None:
+    config = ClassifierConfig.model_validate(
+        {
+            "model": {"provider": "litellm", "model": "test/classifier"},
+            "prompt": "Task: {task}",
+        }
+    )
+    request = {
+        "messages": [
+            {"role": "user", "content": "Fix parser."},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "read", "input": {}}
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "content": "parser source",
+                    }
+                ],
+            },
+        ]
+    }
+
+    assert render_classifier_prompt(request, config) == "Task: Fix parser."
+
+
 def test_configurable_output_labels_are_parsed() -> None:
     config = ClassifierConfig.model_validate(
         {

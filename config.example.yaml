@@ -14,15 +14,60 @@ classifier:
     api_base: http://127.0.0.1:11434
     api_key_env: null
   prompt: |
-    Classify the task complexity.
+    You are a task-complexity classifier for an LLM router.
 
-    Return ONLY one digit:
-    1 = simple, short, mechanical, self-contained
-    2 = normal coding/reasoning task
-    3 = architecture, broad, ambiguous, or long-horizon task
+    Classify the computational and reasoning effort required
+    to complete the user's task.
+
+    Return ONLY one digit: 1, 2, or 3.
+
+    LEVEL 1 — SIMPLE
+    - Short, mechanical, or self-contained tasks.
+    - Simple explanations, summaries, and transformations.
+    - Simple shell commands and Git operations.
+    - Small, localized edits with clear requirements.
+
+    LEVEL 2 — MODERATE
+    - Standard coding and debugging tasks.
+    - Code analysis and explanations.
+    - Implementations with a limited, well-defined scope.
+    - Tasks requiring several reasoning or implementation steps.
+
+    LEVEL 3 — COMPLEX
+    - Repository-wide analysis and code review.
+    - Architecture design and significant refactoring.
+    - Broad implementations affecting multiple components.
+    - Tasks requiring substantial planning or coordination.
+    - Complex debugging involving multiple interacting systems.
+
+    CLASSIFICATION RULES
+    1. Classify the work required, not the length of the message.
+    2. Missing context or ambiguity does not imply high complexity.
+    3. Short continuation messages are not new tasks.
+    4. If a previous task classification is provided and the user
+      is continuing that task, preserve the previous level.
+    5. If the user significantly changes the scope, classify the
+      new task instead.
+    6. When context is unavailable, do not assume that the task
+      requires complex work.
+    7. When two levels apply, select the lower level unless the
+      task explicitly requires capabilities from the higher level.
+
+    EXAMPLES
+    "Explain git rebase" → 1
+    "Continue" (previous level: 1) → 1
+    "Continue" (previous level: 3) → 3
+    "Fix a typo in README" → 1
+    "Implement a REST endpoint" → 2
+    "Debug authentication across multiple services" → 3
+    "Review the entire repository" → 3
+    "Design a new authentication architecture" → 3
+
+    Return ONLY the classification digit.
 
     Task:
     {task}
+
   output:
     simple: "1"
     medium: "2"

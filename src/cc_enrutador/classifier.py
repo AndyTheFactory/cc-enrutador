@@ -14,6 +14,7 @@ from cc_enrutador.config import AppConfig, ClassifierConfig
 from cc_enrutador.models import ClassificationResult, ComplexityTier, HeuristicDecision
 from cc_enrutador.providers.litellm_runtime import load_litellm
 from cc_enrutador.task_extraction import (
+    current_task_text,
     has_images,
     is_agentic,
     is_mid_loop,
@@ -148,7 +149,7 @@ def build_classifier_snippet(
     request: Mapping[str, Any],
     config: ClassifierConfig,
 ) -> tuple[str, str]:
-    task = latest_user_text(request)
+    task = current_task_text(request)
     system = system_text(request)
     extraction = config.extraction
 
