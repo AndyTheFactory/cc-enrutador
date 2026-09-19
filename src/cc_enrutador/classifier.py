@@ -379,9 +379,13 @@ class ClassifierService:
             tier, rule = select_tier(decision, self.config)
         except Exception as exc:
             # Never log task text, provider response bodies or authorization values.
-            _LOGGER.warning("JEV classifier failed with %s; using heuristic fallback", type(exc).__name__)
+            _LOGGER.warning(
+                "JEV classifier failed with %s; using heuristic fallback", type(exc).__name__
+            )
             result = self._heuristic_result(
-                heuristic, started, reason_prefix="jev-shadow-fallback:" if shadow else "jev-fallback:"
+                heuristic,
+                started,
+                reason_prefix="jev-shadow-fallback:" if shadow else "jev-fallback:",
             )
             if shadow:
                 result.decision = {"shadow": True, "error": type(exc).__name__}
