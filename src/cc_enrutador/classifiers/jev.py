@@ -51,13 +51,15 @@ def parse_choice(
     if not isinstance(answer, Mapping) or answer.get("type") != "choice":
         raise JevSchemaError("Expected task_tier Choice answer")
     try:
-        decision = JevChoiceDecision.model_validate({
-            "choice": answer.get("choice"),
-            "probabilities": answer.get("probabilities"),
-            "confidence": answer.get("confidence"),
-            "model": response.get("model"),
-            "latency_ms": latency_ms,
-        })
+        decision = JevChoiceDecision.model_validate(
+            {
+                "choice": answer.get("choice"),
+                "probabilities": answer.get("probabilities"),
+                "confidence": answer.get("confidence"),
+                "model": response.get("model"),
+                "latency_ms": latency_ms,
+            }
+        )
     except ValueError as exc:
         raise JevSchemaError("Invalid Choice answer fields") from exc
     if abs(sum(decision.probabilities.values()) - 1) > jev.policy.probability_sum_tolerance:
