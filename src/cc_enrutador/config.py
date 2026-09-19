@@ -4,8 +4,8 @@ import os
 import re
 import string
 from pathlib import Path
-from urllib.parse import urlparse
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
