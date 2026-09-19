@@ -19,6 +19,7 @@ class ClassificationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     latency_ms: float = Field(ge=0.0)
     cached: bool = False
+    decision: dict[str, object] | None = None
 
 
 class HeuristicDecision(BaseModel):
