@@ -9,7 +9,7 @@ from typing import Any
 from cc_enrutador.config import AppConfig
 from cc_enrutador.execution import ProviderRegistry
 from cc_enrutador.models import ComplexityTier, RouteDecision
-from cc_enrutador.providers.base import ProviderError, ProviderRequestError
+from cc_enrutador.providers.base import ProviderError, ProviderRequestError, ProviderResponseError
 from cc_enrutador.routing import provider_for_tier
 from cc_enrutador.state import TaskStateStore
 from cc_enrutador.timeouts import TimeoutPolicy
@@ -77,6 +77,7 @@ class ExecutionService:
         task_id: str,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
         attempted_tiers: list[ComplexityTier] | None = None,
     ) -> ExecutionResult:
         attempted = attempted_tiers if attempted_tiers is not None else []
@@ -89,9 +90,14 @@ class ExecutionService:
             provider = self.providers.get(route)
             try:
                 payload = await asyncio.wait_for(
-                    provider.complete(body, headers),
+                    provider.complete(body, headers, query),
                     timeout=self.timeouts.request_seconds(tier),
                 )
+            except ProviderResponseError as exc:
+                if not exc.retryable:
+                    raise
+                last_error = exc
+                continue
             except ProviderRequestError:
                 raise
             except (ProviderError, TimeoutError) as exc:
@@ -117,6 +123,7 @@ class ExecutionService:
         task_id: str,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
         attempted_tiers: list[ComplexityTier] | None = None,
         model_latency_ms: list[float] | None = None,
     ) -> AsyncIterator[bytes]:
@@ -131,7 +138,7 @@ class ExecutionService:
             attempts.append(tier)
             route = route_for_tier(tier, self.config)
             provider = self.providers.get(route)
-            upstream = provider.stream(body, headers)
+            upstream = provider.stream(body, headers, query)
             yielded = False
             try:
                 while True:
@@ -148,6 +155,18 @@ class ExecutionService:
                     yielded = True
                     self.task_state.promote(task_id, tier)
                     yield chunk
+            except ProviderResponseError as exc:
+                close = getattr(upstream, "aclose", None)
+                if close is not None:
+                    await close()
+                if yielded:
+                    raise ProviderError(
+                        f"stream failed after response started on {tier.value}: {exc}"
+                    ) from exc
+                if not exc.retryable:
+                    raise
+                last_error = exc
+                continue
             except (ProviderError, TimeoutError) as exc:
                 last_error = exc
                 close = getattr(upstream, "aclose", None)

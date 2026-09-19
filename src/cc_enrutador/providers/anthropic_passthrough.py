@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from cc_enrutador.config import ProviderModelConfig
-from cc_enrutador.providers.base import ProviderError, ProviderRequestError
+from cc_enrutador.providers.base import ProviderError, ProviderResponseError
 from cc_enrutador.providers.headers import headers_for_anthropic
 
 # 5xx and 429 are transport/availability failures worth escalating to a different
@@ -14,6 +14,37 @@ from cc_enrutador.providers.headers import headers_for_anthropic
 # waste usage on a request that will fail identically upstream.
 _NON_ESCALATING_STATUS = range(400, 500)
 _RETRYABLE_STATUS_EXCEPTIONS = {429}
+_MAX_ERROR_MESSAGE_CHARS = 1000
+_HOP_BY_HOP_RESPONSE_HEADERS = {"content-length", "transfer-encoding", "connection"}
+
+
+def _response_headers(response: httpx.Response) -> dict[str, str]:
+    return {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() not in _HOP_BY_HOP_RESPONSE_HEADERS
+    }
+
+
+def _response_error_summary(response: httpx.Response) -> str:
+    error_type = "unknown"
+    message = response.reason_phrase
+    request_id = response.headers.get("request-id") or response.headers.get("x-request-id")
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        request_id = payload.get("request_id") or request_id
+        error = payload.get("error")
+        if isinstance(error, dict):
+            error_type = str(error.get("type", error_type))
+            message = str(error.get("message", message))
+    message = message[:_MAX_ERROR_MESSAGE_CHARS]
+    return (
+        f"status={response.status_code} error_type={error_type!r} "
+        f"request_id={request_id!r} message={message!r}"
+    )
 
 
 def _raise_for_status(response: httpx.Response) -> None:
@@ -21,9 +52,15 @@ def _raise_for_status(response: httpx.Response) -> None:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
-        if status in _NON_ESCALATING_STATUS and status not in _RETRYABLE_STATUS_EXCEPTIONS:
-            raise ProviderRequestError(f"Anthropic rejected the request: {exc}") from exc
-        raise
+        summary = _response_error_summary(exc.response)
+        retryable = status not in _NON_ESCALATING_STATUS or status in _RETRYABLE_STATUS_EXCEPTIONS
+        raise ProviderResponseError(
+            f"Anthropic upstream response: {summary}",
+            status_code=status,
+            headers=_response_headers(exc.response),
+            content=exc.response.content,
+            retryable=retryable,
+        ) from exc
 
 
 class AnthropicPassthroughProvider:
@@ -46,6 +83,7 @@ class AnthropicPassthroughProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> dict[str, Any]:
         request_body = dict(body)
         client = self._client or httpx.AsyncClient(
@@ -53,13 +91,23 @@ class AnthropicPassthroughProvider:
         )
         owns_client = self._client is None
         try:
+            url = f"{self.messages_url}?{query}" if query else self.messages_url
             response = await client.post(
-                self.messages_url,
+                url,
                 headers=headers_for_anthropic(headers),
                 json=request_body,
             )
             _raise_for_status(response)
-            payload = response.json()
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise ProviderError(
+                    "Anthropic returned undecodable JSON: "
+                    f"status={response.status_code} "
+                    f"content_type={response.headers.get('content-type')!r} "
+                    f"content_encoding={response.headers.get('content-encoding')!r} "
+                    f"body_bytes={len(response.content)} error={exc}"
+                ) from exc
             if not isinstance(payload, dict):
                 raise ProviderError("Anthropic returned a non-object JSON response")
             return payload
@@ -93,12 +141,7 @@ class AnthropicPassthroughProvider:
                 headers=headers_for_anthropic(headers),
                 content=content,
             )
-            response_headers = {
-                key: value
-                for key, value in response.headers.items()
-                if key.lower() not in {"content-length", "transfer-encoding", "connection"}
-            }
-            return response.status_code, response_headers, response.content
+            return response.status_code, _response_headers(response), response.content
         except httpx.HTTPError as exc:
             raise ProviderError(f"Anthropic auxiliary passthrough failed: {exc}") from exc
         finally:
@@ -109,6 +152,7 @@ class AnthropicPassthroughProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> AsyncIterator[bytes]:
         request_body = dict(body)
         client = self._client or httpx.AsyncClient(
@@ -116,12 +160,15 @@ class AnthropicPassthroughProvider:
         )
         owns_client = self._client is None
         try:
+            url = f"{self.messages_url}?{query}" if query else self.messages_url
             async with client.stream(
                 "POST",
-                self.messages_url,
+                url,
                 headers=headers_for_anthropic(headers),
                 json=request_body,
             ) as response:
+                if response.is_error:
+                    await response.aread()
                 _raise_for_status(response)
                 async for chunk in response.aiter_bytes():
                     if chunk:

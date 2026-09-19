@@ -29,4 +29,8 @@ def headers_for_anthropic(headers: Mapping[str, str]) -> dict[str, str]:
     normalized = normalized_headers(headers)
     result = {key: value for key, value in normalized.items() if key not in _BLOCKED_HOP_HEADERS}
     result.setdefault("content-type", "application/json")
+    # Do not advertise compression formats supported by the caller but unavailable
+    # to this HTTP client. Identity also keeps buffered auxiliary responses aligned
+    # with the response headers relayed downstream.
+    result["accept-encoding"] = "identity"
     return result

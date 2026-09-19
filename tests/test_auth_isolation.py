@@ -31,6 +31,7 @@ def test_anthropic_headers_preserve_subscription_and_protocol_headers() -> None:
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "tools-2025",
         "content-type": "application/json",
+        "accept-encoding": "gzip, deflate, br, zstd",
         "host": "router.local",
     }
 
@@ -40,4 +41,5 @@ def test_anthropic_headers_preserve_subscription_and_protocol_headers() -> None:
     assert filtered["x-api-key"] == "fake-anthropic-key"
     assert filtered["anthropic-version"] == "2023-06-01"
     assert filtered["anthropic-beta"] == "tools-2025"
+    assert filtered["accept-encoding"] == "identity"
     assert "host" not in filtered

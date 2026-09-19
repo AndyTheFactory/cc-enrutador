@@ -78,6 +78,7 @@ class LiteLLMProvider:
         self,
         body: Mapping[str, Any],
         _headers: Mapping[str, str],
+        _query: str = "",
     ) -> dict[str, Any]:
         # Inbound headers (including any Claude OAuth) are never forwarded to LiteLLM;
         # credentials come only from self.config.api_key_env in _call().
@@ -91,6 +92,7 @@ class LiteLLMProvider:
         self,
         body: Mapping[str, Any],
         _headers: Mapping[str, str],
+        _query: str = "",
     ) -> AsyncIterator[bytes]:
         stream = await self._call(stream=True, body=body)
         normalizer = LiteLLMStreamNormalizer(self.config.model)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 from cc_enrutador.app import create_app
 from cc_enrutador.config import AppConfig, TelemetryConfig
 from cc_enrutador.models import ClassificationResult, ComplexityTier, RouteDecision
-from cc_enrutador.providers.base import ProviderError
+from cc_enrutador.providers.base import ProviderError, ProviderResponseError
 from cc_enrutador.telemetry import RouterTelemetryEvent, TelemetryRecorder
 
 
@@ -61,6 +62,7 @@ class Provider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> dict[str, Any]:
         if self.fail:
             raise ProviderError(f"{self.name} failed")
@@ -78,6 +80,7 @@ class Provider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> AsyncIterator[bytes]:
         if self.fail:
             raise ProviderError(f"{self.name} failed")
@@ -202,6 +205,125 @@ def test_provider_fallback_is_recorded_in_telemetry() -> None:
     assert events[0].fallback_path == [ComplexityTier.MEDIUM]
     assert events[0].model_latency_ms is not None
     assert events[0].model_latency_ms >= 0
+
+
+def test_failed_model_request_logs_actionable_context(caplog: Any) -> None:
+    registry = Registry()
+    registry.providers[ComplexityTier.COMPLEX].fail = True
+    app = create_app(config(), SequenceClassifier([ComplexityTier.COMPLEX]), registry)
+
+    async def send_request() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/v1/messages?beta=true",
+                headers={"x-request-id": "request-456", "authorization": "Bearer secret"},
+                json={"messages": [{"role": "user", "content": "Design the architecture."}]},
+            )
+
+    with caplog.at_level(logging.ERROR, logger="cc_enrutador.app"):
+        response = asyncio.run(send_request())
+
+    assert response.status_code == 502
+    log = caplog.messages[-1]
+    assert "model request failed" in log
+    assert "request_id=request-456" in log
+    assert "tier=complex" in log
+    assert "target=complex" in log
+    assert "attempted_tiers=['complex']" in log
+    assert "error_type=ProviderError" in log
+    assert "complex failed" in log
+    assert "secret" not in log
+
+
+def test_anthropic_error_response_is_relayed_unchanged() -> None:
+    class RejectedProvider(Provider):
+        async def complete(
+            self,
+            body: Mapping[str, Any],
+            headers: Mapping[str, str],
+            query: str = "",
+        ) -> dict[str, Any]:
+            assert query == "beta=true"
+            raise ProviderResponseError(
+                "upstream rejected request",
+                status_code=429,
+                headers={
+                    "content-type": "application/json",
+                    "retry-after": "11",
+                    "x-should-retry": "true",
+                    "request-id": "req_123",
+                },
+                content=b'{"type":"error","request_id":"req_123"}',
+                retryable=True,
+            )
+
+    registry = Registry()
+    registry.providers[ComplexityTier.COMPLEX] = RejectedProvider("complex")
+    app = create_app(config(), SequenceClassifier([ComplexityTier.COMPLEX]), registry)
+
+    async def send_request() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/v1/messages?beta=true",
+                json={"messages": [{"role": "user", "content": "hello"}]},
+            )
+
+    response = asyncio.run(send_request())
+
+    assert response.status_code == 429
+    assert response.content == b'{"type":"error","request_id":"req_123"}'
+    assert response.headers["retry-after"] == "11"
+    assert response.headers["x-should-retry"] == "true"
+    assert response.headers["request-id"] == "req_123"
+
+
+def test_streaming_anthropic_error_is_relayed_before_response_starts() -> None:
+    class RejectedStreamProvider(Provider):
+        async def stream(
+            self,
+            body: Mapping[str, Any],
+            headers: Mapping[str, str],
+            query: str = "",
+        ) -> AsyncIterator[bytes]:
+            assert query == "beta=true"
+            raise ProviderResponseError(
+                "upstream unavailable",
+                status_code=529,
+                headers={
+                    "content-type": "application/json",
+                    "retry-after": "3",
+                    "x-should-retry": "true",
+                    "request-id": "req_stream_123",
+                },
+                content=b'{"type":"error","error":{"type":"overloaded_error"}}',
+                retryable=True,
+            )
+            yield b""  # pragma: no cover
+
+    registry = Registry()
+    registry.providers[ComplexityTier.COMPLEX] = RejectedStreamProvider("complex")
+    app = create_app(config(), SequenceClassifier([ComplexityTier.COMPLEX]), registry)
+
+    async def send_request() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(
+                "/v1/messages?beta=true",
+                json={
+                    "stream": True,
+                    "messages": [{"role": "user", "content": "hello"}],
+                },
+            )
+
+    response = asyncio.run(send_request())
+
+    assert response.status_code == 529
+    assert response.content == b'{"type":"error","error":{"type":"overloaded_error"}}'
+    assert response.headers["retry-after"] == "3"
+    assert response.headers["x-should-retry"] == "true"
+    assert response.headers["request-id"] == "req_stream_123"
 
 
 def test_auxiliary_traffic_bypasses_classifier_and_router_telemetry() -> None:

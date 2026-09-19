@@ -49,14 +49,17 @@ class FakeProvider:
         self.name = name
         self.last_body: dict[str, Any] | None = None
         self.last_headers: dict[str, str] | None = None
+        self.last_query = ""
 
     async def complete(
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> dict[str, Any]:
         self.last_body = dict(body)
         self.last_headers = dict(headers)
+        self.last_query = query
         return {
             "id": f"msg_{self.name}",
             "type": "message",
@@ -71,9 +74,11 @@ class FakeProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> AsyncIterator[bytes]:
         self.last_body = dict(body)
         self.last_headers = dict(headers)
+        self.last_query = query
         yield b'event: message_start\ndata: {"type":"message_start"}\n\n'
         yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
 

@@ -54,6 +54,7 @@ class FakeProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> dict[str, Any]:
         return {
             "id": f"msg_{self.name}",
@@ -69,6 +70,7 @@ class FakeProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> AsyncIterator[bytes]:
         yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
 

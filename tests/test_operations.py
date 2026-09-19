@@ -43,6 +43,7 @@ class FakeProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> dict[str, Any]:
         if self.fail:
             raise ProviderError(f"{self.name} failed")
@@ -52,6 +53,7 @@ class FakeProvider:
         self,
         body: Mapping[str, Any],
         headers: Mapping[str, str],
+        query: str = "",
     ) -> AsyncIterator[bytes]:
         if self.fail:
             raise ProviderError(f"{self.name} failed")
@@ -157,6 +159,7 @@ def test_stream_does_not_switch_provider_after_output_started() -> None:
             self,
             body: Mapping[str, Any],
             headers: Mapping[str, str],
+            query: str = "",
         ) -> AsyncIterator[bytes]:
             yield b"partial"
             raise ProviderError("late failure")
