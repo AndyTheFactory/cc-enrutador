@@ -20,31 +20,34 @@ from cc_enrutador.models import ComplexityTier
 
 
 def config(*, mode: str = "hybrid", shadow: bool = False) -> AppConfig:
-    return AppConfig.model_validate({
-        "classifier": {
-            "mode": mode,
-            "model": {
-                "provider": "openrouter_decisions",
-                "model": "~typesafe/jev-latest",
-                "api_base": "https://openrouter.ai/api/alpha/decisions",
-                "api_key_env": "TEST_OPENROUTER_KEY",
+    return AppConfig.model_validate(
+        {
+            "classifier": {
+                "mode": mode,
+                "model": {
+                    "provider": "openrouter_decisions",
+                    "model": "~typesafe/jev-latest",
+                    "api_base": "https://openrouter.ai/api/alpha/decisions",
+                    "api_key_env": "TEST_OPENROUTER_KEY",
+                },
+                "jev": {"shadow": {"enabled": shadow}},
             },
-            "jev": {"shadow": {"enabled": shadow}},
-        },
-        "models": {
-            "simple": {"provider": "litellm", "model": "local/model"},
-            "medium": {"provider": "litellm", "model": "remote/model"},
-            "complex": {
-                "provider": "anthropic_subscription",
-                "model": "passthrough",
-                "api_base": "https://api.anthropic.com",
+            "models": {
+                "simple": {"provider": "litellm", "model": "local/model"},
+                "medium": {"provider": "litellm", "model": "remote/model"},
+                "complex": {
+                    "provider": "anthropic_subscription",
+                    "model": "passthrough",
+                    "api_base": "https://api.anthropic.com",
+                },
             },
-        },
-    })
+        }
+    )
 
 
-def answer(choice: str = "medium", simple: float = 0.10,
-           medium: float = 0.80, complex: float = 0.10) -> dict[str, Any]:
+def answer(
+    choice: str = "medium", simple: float = 0.10, medium: float = 0.80, complex: float = 0.10
+) -> dict[str, Any]:
     return {
         "model": "typesafe/jev-1.13",
         "answers": {
@@ -78,10 +81,14 @@ def test_litellm_classifier_remains_supported() -> None:
     assert AppConfig.model_validate(cfg).classifier.model.provider == "litellm"
 
 
-@pytest.mark.parametrize("bad", [
-    answer("invalid"), answer("medium", 0.5, 0.5, 0.5),
-    answer("medium", -0.1, 1.0, 0.1),
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        answer("invalid"),
+        answer("medium", 0.5, 0.5, 0.5),
+        answer("medium", -0.1, 1.0, 0.1),
+    ],
+)
 def test_invalid_choice_fails_closed(bad: dict[str, Any]) -> None:
     with pytest.raises(JevSchemaError):
         parse_choice(bad, config().classifier)
