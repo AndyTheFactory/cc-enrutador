@@ -38,7 +38,9 @@ class JevChoiceDecision(BaseModel):
         return self
 
 
-def parse_choice(response: Mapping[str, Any], config: ClassifierConfig, latency_ms: float = 0) -> JevChoiceDecision:
+def parse_choice(
+    response: Mapping[str, Any], config: ClassifierConfig, latency_ms: float = 0
+) -> JevChoiceDecision:
     jev = config.jev
     if jev is None:
         raise JevSchemaError("JEV config missing")
@@ -63,7 +65,9 @@ def parse_choice(response: Mapping[str, Any], config: ClassifierConfig, latency_
     return decision
 
 
-def select_tier(decision: JevChoiceDecision, config: ClassifierConfig) -> tuple[ComplexityTier, str]:
+def select_tier(
+    decision: JevChoiceDecision, config: ClassifierConfig
+) -> tuple[ComplexityTier, str]:
     if config.jev is None:
         raise ValueError("JEV config missing")
     policy = config.jev.policy
@@ -86,7 +90,13 @@ class JevAdapter:
         self.config = config
         self.client = client
 
-    async def decide(self, task: str, system: str = "", is_agentic: bool = False, is_mid_loop: bool = False) -> JevChoiceDecision:
+    async def decide(
+        self,
+        task: str,
+        system: str = "",
+        is_agentic: bool = False,
+        is_mid_loop: bool = False,
+    ) -> JevChoiceDecision:
         api_key = os.getenv(self.config.model.api_key_env or "")
         if not api_key:
             raise JevProviderError("OpenRouter classifier API key is missing")
@@ -126,12 +136,20 @@ class JevAdapter:
                     timeout=self.config.timeout_ms / 1000,
                 )
             response.raise_for_status()
-            return parse_choice(response.json(), self.config, (time.perf_counter() - started) * 1000)
+            return parse_choice(
+                response.json(), self.config, (time.perf_counter() - started) * 1000
+            )
         except httpx.TimeoutException as exc:
             raise JevProviderError("OpenRouter Decisions request timed out") from exc
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
-            category = "authentication" if code in (401, 403) else "rate-limit" if code in (429, 529) else "upstream"
+            category = (
+                "authentication"
+                if code in (401, 403)
+                else "rate-limit"
+                if code in (429, 529)
+                else "upstream"
+            )
             raise JevProviderError(f"OpenRouter Decisions {category} error ({code})") from exc
         except (httpx.HTTPError, ValueError) as exc:
             if isinstance(exc, JevSchemaError):
