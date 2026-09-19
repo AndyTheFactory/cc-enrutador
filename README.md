@@ -112,6 +112,61 @@ If an endpoint requires authentication, set the environment variable named by
 load `.env` files. Export the variables in your shell, use your shell's env-file mechanism,
 or replace the `${...}` references in `config.yaml` with fixed non-secret values.
 
+### OpenRouter models
+
+Create an API key in the [OpenRouter dashboard](https://openrouter.ai/settings/keys), then
+choose model slugs from the [OpenRouter model catalog](https://openrouter.ai/models). Because
+cc-enrutador calls these models through LiteLLM, prefix each OpenRouter slug with
+`openrouter/`. For example, the OpenRouter slug `google/gemini-3.1-flash-lite` becomes
+`openrouter/google/gemini-3.1-flash-lite`.
+
+Bash / zsh:
+
+```bash
+export OPENROUTER_API_KEY=sk-or-v1-...
+
+export SIMPLE_MODEL=openrouter/google/gemini-3.1-flash-lite
+export SIMPLE_BASE_URL=https://openrouter.ai/api/v1
+export SIMPLE_API_KEY="$OPENROUTER_API_KEY"
+
+export MEDIUM_MODEL=openrouter/<provider>/<model-slug>
+export MEDIUM_BASE_URL=https://openrouter.ai/api/v1
+export MEDIUM_API_KEY="$OPENROUTER_API_KEY"
+```
+
+PowerShell:
+
+```powershell
+$env:OPENROUTER_API_KEY = "sk-or-v1-..."
+
+$env:SIMPLE_MODEL = "openrouter/google/gemini-3.1-flash-lite"
+$env:SIMPLE_BASE_URL = "https://openrouter.ai/api/v1"
+$env:SIMPLE_API_KEY = $env:OPENROUTER_API_KEY
+
+$env:MEDIUM_MODEL = "openrouter/<provider>/<model-slug>"
+$env:MEDIUM_BASE_URL = "https://openrouter.ai/api/v1"
+$env:MEDIUM_API_KEY = $env:OPENROUTER_API_KEY
+```
+
+You may use different OpenRouter keys or models for the simple and medium tiers. These keys
+authenticate only those LiteLLM routes; they do not replace the Claude subscription login
+used by the complex route. Keep keys in environment variables, not `config.yaml`.
+
+For routes that may receive prompts larger than the model context window, enable OpenRouter's
+lossy middle-out context compression explicitly:
+
+```yaml
+models:
+  simple:
+    provider: litellm
+    model: ${SIMPLE_MODEL}
+    api_base: ${SIMPLE_BASE_URL}
+    api_key_env: SIMPLE_API_KEY
+    context_compression: true
+```
+
+This option defaults to `false` and is valid only for model names prefixed with `openrouter/`.
+
 Validate configuration:
 
 ```bash

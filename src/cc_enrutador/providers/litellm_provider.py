@@ -54,11 +54,22 @@ class LiteLLMProvider:
             litellm = load_litellm()
             completion = litellm.acompletion
         else:
+            litellm = None
             completion = self._completion
 
         kwargs = anthropic_request_to_litellm(body)
         kwargs["model"] = self.config.model
         kwargs["stream"] = stream
+        if self.config.context_compression:
+            kwargs["plugins"] = [{"id": "context-compression"}]
+        requested_max_tokens = kwargs.get("max_tokens")
+        if litellm is not None and type(requested_max_tokens) is int:
+            try:
+                model_max_tokens = litellm.get_max_tokens(self.config.model)
+            except Exception:
+                model_max_tokens = None
+            if model_max_tokens is not None:
+                kwargs["max_tokens"] = min(requested_max_tokens, model_max_tokens)
         if self.timeout_seconds is not None:
             kwargs["timeout"] = self.timeout_seconds
 

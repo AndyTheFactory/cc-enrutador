@@ -40,6 +40,7 @@ class ProviderModelConfig(StrictModel):
     model: str
     api_base: str | None = None
     api_key_env: str | None = None
+    context_compression: bool = False
 
     @field_validator("model")
     @classmethod
@@ -59,6 +60,8 @@ class ProviderModelConfig(StrictModel):
     def validate_provider_shape(self) -> ProviderModelConfig:
         if self.provider == "anthropic_subscription" and not self.api_base:
             raise ValueError("anthropic_subscription requires api_base")
+        if self.context_compression and not self.model.startswith("openrouter/"):
+            raise ValueError("context_compression requires an openrouter/ model")
         return self
 
 

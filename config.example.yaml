@@ -91,12 +91,14 @@ models:
     model: ${SIMPLE_MODEL}
     api_base: ${SIMPLE_BASE_URL}
     api_key_env: SIMPLE_API_KEY
+    context_compression: false
 
   medium:
     provider: litellm
     model: ${MEDIUM_MODEL}
     api_base: ${MEDIUM_BASE_URL}
     api_key_env: MEDIUM_API_KEY
+    context_compression: false
 
   complex:
     provider: anthropic_subscription

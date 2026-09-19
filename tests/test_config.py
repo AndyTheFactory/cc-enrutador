@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from cc_enrutador.config import ConfigLoadError, load_config
+from cc_enrutador.config import ConfigLoadError, ProviderModelConfig, load_config
 
 
 def _write_config(path: Path, medium_base: str = "http://localhost:8000/v1") -> None:
@@ -42,7 +43,17 @@ def test_load_minimal_valid_config(tmp_path: Path) -> None:
     assert config.server.port == 8787
     assert config.classifier.mode == "hybrid"
     assert config.models.simple.model == "local/simple"
+    assert config.models.simple.context_compression is False
     assert config.telemetry.preserve_claude_default is True
+
+
+def test_context_compression_requires_openrouter_model() -> None:
+    with pytest.raises(ValidationError, match="requires an openrouter/ model"):
+        ProviderModelConfig(
+            provider="litellm",
+            model="local/simple",
+            context_compression=True,
+        )
 
 
 def test_environment_interpolation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
