@@ -15,7 +15,7 @@ from cc_enrutador.classifiers.jev import (
     parse_choice,
     select_tier,
 )
-from cc_enrutador.config import AppConfig, ClassifierConfig
+from cc_enrutador.config import AppConfig
 from cc_enrutador.models import ComplexityTier
 
 
