@@ -179,8 +179,7 @@ class Doctor:
                 and (
                     self.config.classifier.mode != "heuristic"
                     or bool(
-                        self.config.classifier.jev
-                        and self.config.classifier.jev.shadow.enabled
+                        self.config.classifier.jev and self.config.classifier.jev.shadow.enabled
                     )
                 )
             )
