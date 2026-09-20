@@ -10,6 +10,7 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, cast
 
+from cc_enrutador.classifiers.jev import JevAdapter, JevChoiceDecision, select_tier
 from cc_enrutador.config import AppConfig, ClassifierConfig
 from cc_enrutador.models import ClassificationResult, ComplexityTier, HeuristicDecision
 from cc_enrutador.providers.litellm_runtime import load_litellm
@@ -258,15 +259,25 @@ class ClassifierService:
         self,
         app_config: AppConfig,
         ai_completion: AICompletion | None = None,
+        jev_adapter: JevAdapter | None = None,
     ) -> None:
         self.config = app_config.classifier
         self.ai_completion = ai_completion if ai_completion is not None else litellm_completion
         self._uses_provider_timeout = ai_completion is None
         self.cache = ClassificationCache(self.config.cache_size)
+        self.jev_adapter = (
+            jev_adapter or JevAdapter(self.config)
+            if self.config.model.provider == "openrouter_decisions"
+            else None
+        )
+        self._jev_cache: OrderedDict[str, JevChoiceDecision] = OrderedDict()
 
     async def classify(self, request: Mapping[str, Any]) -> ClassificationResult:
         started = time.perf_counter()
         heuristic = heuristic_classify(request, self.config)
+
+        if self.config.model.provider == "openrouter_decisions":
+            return await self._classify_jev(request, heuristic, started)
 
         if self.config.mode == "heuristic":
             return self._heuristic_result(heuristic, started)
@@ -315,6 +326,110 @@ class ClassifierService:
             confidence=0.75,
             latency_ms=(time.perf_counter() - started) * 1000,
             cached=False,
+        )
+
+    async def _classify_jev(
+        self,
+        request: Mapping[str, Any],
+        heuristic: HeuristicDecision,
+        started: float,
+    ) -> ClassificationResult:
+        assert self.config.jev is not None
+        jev = self.config.jev
+        shadow = jev.shadow.enabled
+        if self.config.mode == "heuristic" and not shadow:
+            return self._heuristic_result(heuristic, started)
+        # Tool-result-only continuation is already covered by task-state stickiness.
+        # No new external classification is needed even when a prior user turn exists.
+        if not latest_user_text(request).strip():
+            return self._heuristic_result(heuristic, started)
+        if not shadow and self.config.mode == "hybrid" and heuristic.explicit_gate:
+            return self._heuristic_result(heuristic, started)
+
+        # The entire original semantic task is part of the key, not just the truncated snippet.
+        config_fingerprint = hashlib.sha256(
+            json.dumps(
+                {
+                    "model": self.config.model.model,
+                    "base": self.config.model.api_base,
+                    "question": jev.model_dump(),
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        normalized_task = current_task_text(request).strip()
+        key_material = json.dumps(
+            {
+                "task": normalized_task,
+                "system": system_text(request).strip(),
+                "agentic": is_agentic(request),
+                "mid_loop": is_mid_loop(request),
+                "config": config_fingerprint,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        key = hashlib.sha256(key_material.encode("utf-8")).hexdigest()
+        decision = self._jev_cache.get(key)
+        cached = decision is not None
+        if cached:
+            self._jev_cache.move_to_end(key)
+        try:
+            if decision is None:
+                assert self.jev_adapter is not None
+                task, system = build_classifier_snippet(request, self.config)
+                decision = await asyncio.wait_for(
+                    self.jev_adapter.decide(
+                        task, system, is_agentic(request), is_mid_loop(request)
+                    ),
+                    timeout=self.config.timeout_ms / 1000,
+                )
+                if self.config.cache_size:
+                    self._jev_cache[key] = decision
+                    self._jev_cache.move_to_end(key)
+                    while len(self._jev_cache) > self.config.cache_size:
+                        self._jev_cache.popitem(last=False)
+            tier, rule = select_tier(decision, self.config)
+        except Exception as exc:
+            # Never log task text, provider response bodies or authorization values.
+            _LOGGER.warning(
+                "JEV classifier failed with %s; using heuristic fallback", type(exc).__name__
+            )
+            result = self._heuristic_result(
+                heuristic,
+                started,
+                reason_prefix="jev-shadow-fallback:" if shadow else "jev-fallback:",
+            )
+            if shadow:
+                result.decision = {"shadow": True, "error": type(exc).__name__}
+            return result
+
+        metadata: dict[str, object] = {
+            "provider": "openrouter_decisions",
+            "raw_choice": decision.choice.value,
+            "policy_tier": tier.value,
+            "probabilities": {label.value: p for label, p in decision.probabilities.items()},
+            "confidence": decision.confidence,
+            "model": decision.model or self.config.model.model,
+            "cache_hit": cached,
+            "latency_ms": 0.0 if cached else decision.latency_ms,
+            "shadow": shadow,
+        }
+        if shadow:
+            metadata["baseline_tier"] = heuristic.tier.value
+            metadata["disagreement"] = heuristic.tier != tier
+            result = self._heuristic_result(heuristic, started)
+            result.cached = cached
+            result.decision = metadata
+            return result
+        return ClassificationResult(
+            tier=tier,
+            method="ai" if self.config.mode == "ai" else "hybrid",
+            reason=rule,
+            confidence=decision.confidence,
+            latency_ms=(time.perf_counter() - started) * 1000,
+            cached=cached,
+            decision=metadata,
         )
 
     @staticmethod

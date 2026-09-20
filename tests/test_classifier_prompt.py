@@ -42,9 +42,7 @@ def test_prompt_uses_task_before_trailing_tool_result() -> None:
             {"role": "user", "content": "Fix parser."},
             {
                 "role": "assistant",
-                "content": [
-                    {"type": "tool_use", "id": "toolu_1", "name": "read", "input": {}}
-                ],
+                "content": [{"type": "tool_use", "id": "toolu_1", "name": "read", "input": {}}],
             },
             {
                 "role": "user",

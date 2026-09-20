@@ -20,6 +20,8 @@ class RouterTelemetryEvent(BaseModel):
     task_id: str
     classifier_mode: str
     classifier_method: str
+    classifier_provider: str | None = None
+    jev: dict[str, object] | None = None
     tier: ComplexityTier
     reason: str
     confidence: float

@@ -204,6 +204,25 @@ The main configurable surfaces are:
 Secrets are referenced by environment-variable name. Resolved secret values are not stored
 in YAML.
 
+## Optional JEV classifier (OpenRouter Decisions)
+
+To classify tasks with JEV instead of the LiteLLM text classifier, set
+`classifier.model.provider: openrouter_decisions`, `model: "~typesafe/jev-latest"`,
+`api_base: https://openrouter.ai/api/alpha/decisions`, and
+`api_key_env: OPENROUTER_API_KEY`. Export `OPENROUTER_API_KEY` in the router
+process. The key variable name goes in YAML, **not** the secret or
+`${OPENROUTER_API_KEY}`. There is no separate `backend` setting.
+
+JEV asks a single structured Choice question with three tiers. The current
+probability thresholds are proposed, not calibrated against your tasks.
+`classifier.jev.shadow.enabled: true` keeps the heuristic execution route and
+records JEV's hypothetical decision; shadow evaluation is synchronous and
+can add remote request latency and usage costs. `doctor` checks the key
+offline; `doctor --live` makes a real Decisions probe (and existing model probes).
+
+See [JEV rollout and configuration](docs/jev-rollout.md), including a complete
+classifier YAML example, privacy considerations, validation and rollback.
+
 ## Classifier modes
 
 `heuristic`
