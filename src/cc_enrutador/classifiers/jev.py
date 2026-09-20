@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from cc_enrutador.config import ClassifierConfig
 from cc_enrutador.models import ComplexityTier
@@ -27,7 +27,8 @@ class JevChoiceDecision(BaseModel):
     probabilities: dict[ComplexityTier, float]
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     model: str | None = None
-    latency_ms: float = Field(ge=0)
+    latency_ms: float = Field(ge=0, allow_inf_nan=False)
+    usage: dict[str, int | float] | None = None
 
     @model_validator(mode="after")
     def validate_probabilities(self) -> JevChoiceDecision:
@@ -58,10 +59,11 @@ def parse_choice(
                 "confidence": answer.get("confidence"),
                 "model": response.get("model"),
                 "latency_ms": latency_ms,
+                "usage": response.get("usage"),
             }
         )
-    except ValueError as exc:
-        raise JevSchemaError("Invalid Choice answer fields") from exc
+    except (ValidationError, ValueError, TypeError) as exc:
+        raise JevSchemaError("Invalid Choice answer fields") from None
     if abs(sum(decision.probabilities.values()) - 1) > jev.policy.probability_sum_tolerance:
         raise JevSchemaError("Choice probabilities do not sum to one")
     return decision
@@ -142,7 +144,7 @@ class JevAdapter:
                 response.json(), self.config, (time.perf_counter() - started) * 1000
             )
         except httpx.TimeoutException as exc:
-            raise JevProviderError("OpenRouter Decisions request timed out") from exc
+            raise JevProviderError("OpenRouter Decisions request timed out") from None
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
             category = (
@@ -152,8 +154,8 @@ class JevAdapter:
                 if code in (429, 529)
                 else "upstream"
             )
-            raise JevProviderError(f"OpenRouter Decisions {category} error ({code})") from exc
-        except (httpx.HTTPError, ValueError) as exc:
+            raise JevProviderError(f"OpenRouter Decisions {category} error ({code})") from None
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
             if isinstance(exc, JevSchemaError):
                 raise
-            raise JevProviderError("OpenRouter Decisions transport or JSON error") from exc
+            raise JevProviderError("OpenRouter Decisions transport or JSON error") from None
