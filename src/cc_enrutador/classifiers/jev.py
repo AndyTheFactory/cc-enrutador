@@ -62,7 +62,7 @@ def parse_choice(
                 "usage": response.get("usage"),
             }
         )
-    except (ValidationError, ValueError, TypeError) as exc:
+    except (ValidationError, ValueError, TypeError):
         raise JevSchemaError("Invalid Choice answer fields") from None
     if abs(sum(decision.probabilities.values()) - 1) > jev.policy.probability_sum_tolerance:
         raise JevSchemaError("Choice probabilities do not sum to one")
@@ -143,7 +143,7 @@ class JevAdapter:
             return parse_choice(
                 response.json(), self.config, (time.perf_counter() - started) * 1000
             )
-        except httpx.TimeoutException as exc:
+        except httpx.TimeoutException:
             raise JevProviderError("OpenRouter Decisions request timed out") from None
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
