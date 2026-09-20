@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, Field
 
 from cc_enrutador.classifier import ClassifierService
+from cc_enrutador.classifiers.jev import JevAdapter, JevProviderError, JevSchemaError
 from cc_enrutador.config import AppConfig, ProviderModelConfig
 from cc_enrutador.execution import ProviderRegistry
 from cc_enrutador.models import ComplexityTier
@@ -52,10 +53,12 @@ class Doctor:
         config: AppConfig,
         providers: ProviderRegistry | None = None,
         classifier: ClassifierService | None = None,
+        jev_adapter: JevAdapter | None = None,
     ) -> None:
         self.config = config
         self.providers = providers or ProviderRegistry(config)
         self.classifier = classifier or ClassifierService(config)
+        self.jev_adapter = jev_adapter or self.classifier.jev_adapter
         self.timeouts = TimeoutPolicy(config.timeouts)
 
     async def run(self, *, live: bool = False) -> DoctorReport:
@@ -72,6 +75,7 @@ class Doctor:
                 message="configuration parsed and validated",
             ),
             self._classifier_check(),
+            *self._jev_checks(),
             *self._route_checks(),
             self._escalation_check(),
             self._litellm_check(),
@@ -93,6 +97,34 @@ class Doctor:
                 "cache_size": self.config.classifier.cache_size,
             },
         )
+
+    def _jev_checks(self) -> list[DoctorCheck]:
+        if self.config.classifier.model.provider != "openrouter_decisions":
+            return []
+        model = self.config.classifier.model
+        jev = self.config.classifier.jev
+        assert jev is not None
+        endpoint = model.api_base or "https://openrouter.ai/api/alpha/decisions"
+        parsed = urlparse(endpoint)
+        valid = (
+            parsed.scheme == "https"
+            and bool(parsed.netloc)
+            and not parsed.username
+            and not parsed.password
+        )
+        return [
+            DoctorCheck(
+                name="jev:configuration",
+                status=CheckStatus.PASS if valid else CheckStatus.FAIL,
+                message="JEV Choice rubric and endpoint valid" if valid else "Invalid JEV endpoint",
+                metadata={
+                    "provider": model.provider,
+                    "model": model.model,
+                    "question_id": jev.question_id,
+                    "shadow": jev.shadow.enabled,
+                },
+            )
+        ]
 
     def _route_checks(self) -> list[DoctorCheck]:
         checks: list[DoctorCheck] = []
@@ -141,11 +173,19 @@ class Doctor:
             if not model.api_key_env:
                 continue
             present = bool(os.getenv(model.api_key_env))
+            required = (
+                name == "classifier"
+                and model.provider == "openrouter_decisions"
+                and (
+                    self.config.classifier.mode != "heuristic"
+                    or bool(self.config.classifier.jev and self.config.classifier.jev.shadow.enabled)
+                )
+            )
             checks.append(
                 DoctorCheck(
                     name=f"secret:{name}",
-                    status=CheckStatus.PASS if present else CheckStatus.WARN,
-                    required=False,
+                    status=CheckStatus.PASS if present else (CheckStatus.FAIL if required else CheckStatus.WARN),
+                    required=required,
                     message=(
                         f"environment variable {model.api_key_env} is present"
                         if present
@@ -240,6 +280,34 @@ class Doctor:
         return checks
 
     async def _live_classifier(self) -> DoctorCheck:
+        if self.config.classifier.model.provider == "openrouter_decisions":
+            if self.config.classifier.mode == "heuristic" and not (
+                self.config.classifier.jev and self.config.classifier.jev.shadow.enabled
+            ):
+                return DoctorCheck(
+                    name="live:classifier",
+                    status=CheckStatus.WARN,
+                    required=False,
+                    message="JEV probe skipped because classifier mode is heuristic",
+                )
+            assert self.jev_adapter is not None
+            try:
+                choice = await asyncio.wait_for(
+                    self.jev_adapter.decide("Fix a localized parser bug."),
+                    timeout=self.config.doctor.probe_timeout_ms / 1000,
+                )
+            except (JevProviderError, JevSchemaError, TimeoutError) as exc:
+                return DoctorCheck(
+                    name="live:classifier",
+                    status=CheckStatus.FAIL,
+                    message=f"JEV probe failed: {type(exc).__name__}",
+                )
+            return DoctorCheck(
+                name="live:classifier",
+                status=CheckStatus.PASS,
+                message="JEV Choice probe succeeded",
+                metadata={"choice": choice.choice.value, "model": choice.model},
+            )
         try:
             result = await asyncio.wait_for(
                 self.classifier.classify(
