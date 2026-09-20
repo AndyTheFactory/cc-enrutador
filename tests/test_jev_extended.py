@@ -73,6 +73,16 @@ def task(text: str) -> dict[str, Any]:
     return {"messages": [{"role": "user", "content": text}]}
 
 
+def test_non_object_and_nonfinite_choice_are_schema_failures() -> None:
+    cfg = settings().classifier
+    with pytest.raises(JevSchemaError):
+        parse_choice([], cfg)  # type: ignore[arg-type]
+    invalid = response()
+    invalid["answers"]["task_tier"]["probabilities"]["complex"] = float("nan")
+    with pytest.raises(JevSchemaError):
+        parse_choice(invalid, cfg)
+
+
 def test_synthetic_fixtures_parse_and_reject_invalid() -> None:
     cfg = settings().classifier
     folder = Path("tests/fixtures/jev")
