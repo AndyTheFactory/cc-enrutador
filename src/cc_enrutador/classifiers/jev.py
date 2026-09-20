@@ -45,6 +45,8 @@ def parse_choice(
     jev = config.jev
     if jev is None:
         raise JevSchemaError("JEV config missing")
+    if not isinstance(response, Mapping):
+        raise JevSchemaError("Decisions response must be a JSON object")
     answers = response.get("answers")
     if not isinstance(answers, Mapping):
         raise JevSchemaError("Choice answers missing")
