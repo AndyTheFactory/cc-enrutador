@@ -341,9 +341,7 @@ class ClassifierService:
             return self._heuristic_result(heuristic, started)
         # Tool-result-only continuation is already covered by task-state stickiness.
         # No new external classification is needed even when a prior user turn exists.
-        if not latest_user_text(request).strip() or (
-            is_mid_loop(request) and not latest_user_text(request).strip()
-        ):
+        if not latest_user_text(request).strip():
             return self._heuristic_result(heuristic, started)
         if not shadow and self.config.mode == "hybrid" and heuristic.explicit_gate:
             return self._heuristic_result(heuristic, started)
