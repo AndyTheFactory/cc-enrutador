@@ -178,13 +178,22 @@ class Doctor:
                 and model.provider == "openrouter_decisions"
                 and (
                     self.config.classifier.mode != "heuristic"
-                    or bool(self.config.classifier.jev and self.config.classifier.jev.shadow.enabled)
+                    or bool(
+                        self.config.classifier.jev
+                        and self.config.classifier.jev.shadow.enabled
+                    )
                 )
             )
             checks.append(
                 DoctorCheck(
                     name=f"secret:{name}",
-                    status=CheckStatus.PASS if present else (CheckStatus.FAIL if required else CheckStatus.WARN),
+                    status=(
+                        CheckStatus.PASS
+                        if present
+                        else CheckStatus.FAIL
+                        if required
+                        else CheckStatus.WARN
+                    ),
                     required=required,
                     message=(
                         f"environment variable {model.api_key_env} is present"
