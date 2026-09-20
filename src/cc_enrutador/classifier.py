@@ -339,8 +339,11 @@ class ClassifierService:
         shadow = jev.shadow.enabled
         if self.config.mode == "heuristic" and not shadow:
             return self._heuristic_result(heuristic, started)
-        # Never submit tool results as if they were a fresh instruction.
-        if not latest_user_text(request).strip():
+        # Tool-result-only continuation is already covered by task-state stickiness.
+        # No new external classification is needed even when a prior user turn exists.
+        if not latest_user_text(request).strip() or (
+            is_mid_loop(request) and not latest_user_text(request).strip()
+        ):
             return self._heuristic_result(heuristic, started)
         if not shadow and self.config.mode == "hybrid" and heuristic.explicit_gate:
             return self._heuristic_result(heuristic, started)
@@ -356,7 +359,19 @@ class ClassifierService:
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        key = classifier_cache_key(request) + ":" + config_fingerprint
+        normalized_task = current_task_text(request).strip()
+        key_material = json.dumps(
+            {
+                "task": normalized_task,
+                "system": system_text(request).strip(),
+                "agentic": is_agentic(request),
+                "mid_loop": is_mid_loop(request),
+                "config": config_fingerprint,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        key = hashlib.sha256(key_material.encode("utf-8")).hexdigest()
         decision = self._jev_cache.get(key)
         cached = decision is not None
         if cached:
@@ -399,12 +414,14 @@ class ClassifierService:
             "confidence": decision.confidence,
             "model": decision.model or self.config.model.model,
             "cache_hit": cached,
+            "latency_ms": 0.0 if cached else decision.latency_ms,
             "shadow": shadow,
         }
         if shadow:
             metadata["baseline_tier"] = heuristic.tier.value
             metadata["disagreement"] = heuristic.tier != tier
             result = self._heuristic_result(heuristic, started)
+            result.cached = cached
             result.decision = metadata
             return result
         return ClassificationResult(
