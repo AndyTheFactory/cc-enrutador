@@ -1,0 +1,15 @@
+{
+  "model": "typesafe/jev-1.13",
+  "answers": {
+    "task_tier": {
+      "type": "choice",
+      "choice": "medium",
+      "confidence": 0.9,
+      "probabilities": {
+        "simple": 0.6,
+        "medium": 0.6,
+        "complex": 0.1
+      }
+    }
+  }
+}
