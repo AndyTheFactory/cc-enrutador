@@ -286,7 +286,7 @@ def test_telemetry_metadata_is_optional_and_disabled_cleanly(
         return httpx.Response(200, json=response())
 
     class FakeProvider:
-        async def complete(self, body: Any, headers: Any) -> dict[str, Any]:
+        async def complete(self, body: Any, headers: Any, query: str = "") -> dict[str, Any]:
             return {"type": "message", "model": "test", "content": []}
 
     class FakeRegistry:
