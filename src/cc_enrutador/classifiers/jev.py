@@ -28,7 +28,7 @@ class JevChoiceDecision(BaseModel):
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     model: str | None = None
     latency_ms: float = Field(ge=0, allow_inf_nan=False)
-    usage: dict[str, int | float] | None = None
+    usage: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def validate_probabilities(self) -> JevChoiceDecision:
@@ -102,6 +102,7 @@ class JevAdapter:
         system: str = "",
         is_agentic: bool = False,
         is_mid_loop: bool = False,
+        timeout_ms: float | None = None,
     ) -> JevChoiceDecision:
         api_key = os.getenv(self.config.model.api_key_env or "")
         if not api_key:
@@ -125,10 +126,11 @@ class JevAdapter:
                 }
             },
         }
+        effective_timeout = (timeout_ms if timeout_ms is not None else self.config.timeout_ms) / 1000
         started = time.perf_counter()
         try:
             if self.client is None:
-                async with httpx.AsyncClient(timeout=self.config.timeout_ms / 1000) as client:
+                async with httpx.AsyncClient(timeout=effective_timeout) as client:
                     response = await client.post(
                         endpoint,
                         json=payload,
@@ -139,7 +141,7 @@ class JevAdapter:
                     endpoint,
                     json=payload,
                     headers={"Authorization": f"Bearer {api_key}"},
-                    timeout=self.config.timeout_ms / 1000,
+                    timeout=effective_timeout,
                 )
             response.raise_for_status()
             return parse_choice(

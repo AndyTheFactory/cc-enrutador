@@ -302,10 +302,18 @@ class Doctor:
                     required=False,
                     message="JEV probe skipped because classifier mode is heuristic",
                 )
-            assert self.jev_adapter is not None
+            if self.jev_adapter is None:
+                return DoctorCheck(
+                    name="live:classifier",
+                    status=CheckStatus.FAIL,
+                    message="JEV probe failed: no jev_adapter configured",
+                )
             try:
                 choice = await asyncio.wait_for(
-                    self.jev_adapter.decide("Fix a localized parser bug."),
+                    self.jev_adapter.decide(
+                        "Fix a localized parser bug.",
+                        timeout_ms=self.config.doctor.probe_timeout_ms,
+                    ),
                     timeout=self.config.doctor.probe_timeout_ms / 1000,
                 )
             except (JevProviderError, JevSchemaError, TimeoutError) as exc:
