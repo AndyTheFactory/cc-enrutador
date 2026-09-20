@@ -104,9 +104,7 @@ def test_provider_errors_are_categorized_without_upstream_body(
 
 
 @pytest.mark.parametrize("mode", ["ai", "hybrid", "heuristic"])
-def test_jev_mode_selection_and_shadow_gate(
-    monkeypatch: pytest.MonkeyPatch, mode: str
-) -> None:
+def test_jev_mode_selection_and_shadow_gate(monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
     monkeypatch.setenv("JEV_TEST_KEY", "synthetic-key")
     calls = 0
 
@@ -124,11 +122,7 @@ def test_jev_mode_selection_and_shadow_gate(
             return first, again
 
     first, again = asyncio.run(scenario())
-    assert first.tier is (
-        ComplexityTier.SIMPLE
-        if mode != "ai"
-        else ComplexityTier.COMPLEX
-    )
+    assert first.tier is (ComplexityTier.SIMPLE if mode != "ai" else ComplexityTier.COMPLEX)
     assert calls == (1 if mode == "ai" else 0)
     assert again.tier is first.tier
 
