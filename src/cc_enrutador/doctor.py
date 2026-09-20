@@ -198,9 +198,13 @@ class Doctor:
                         f"environment variable {model.api_key_env} is present"
                         if present
                         else (
-                            f"environment variable {model.api_key_env} is missing or empty; "
-                            "this is valid only if the configured provider endpoint "
-                            "does not require it"
+                            f"environment variable {model.api_key_env} is missing or empty"
+                            if required
+                            else (
+                                f"environment variable {model.api_key_env} is missing or empty; "
+                                "this is valid only if the configured provider endpoint "
+                                "does not require it"
+                            )
                         )
                     ),
                     metadata={"env": model.api_key_env},
