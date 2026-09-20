@@ -58,7 +58,7 @@ class Doctor:
         self.config = config
         self.providers = providers or ProviderRegistry(config)
         self.classifier = classifier or ClassifierService(config)
-        self.jev_adapter = jev_adapter or self.classifier.jev_adapter
+        self.jev_adapter = jev_adapter or getattr(self.classifier, "jev_adapter", None)
         self.timeouts = TimeoutPolicy(config.timeouts)
 
     async def run(self, *, live: bool = False) -> DoctorReport:
