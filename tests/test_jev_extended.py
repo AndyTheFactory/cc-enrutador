@@ -299,7 +299,9 @@ def test_telemetry_metadata_is_optional_and_disabled_cleanly(
             cfg.telemetry.enabled = enabled
             classifier = ClassifierService(cfg, jev_adapter=JevAdapter(cfg.classifier, client))
             recorder = TelemetryRecorder(cfg.telemetry, events.append)
-            app = create_app(cfg, classifier=classifier, providers=FakeRegistry(), telemetry=recorder)
+            app = create_app(
+                cfg, classifier=classifier, providers=FakeRegistry(), telemetry=recorder
+            )
             with TestClient(app) as http:
                 response_http = http.post("/v1/messages", json=task("Fix parser behavior."))
                 assert response_http.status_code == 200
